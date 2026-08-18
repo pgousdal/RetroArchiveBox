@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retro-archive-box"
+version = "0.1.0"
+description = "Preservation-first digital archive appliance"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "AGPL-3.0-or-later"}
+dependencies = ["blake3>=0.4.1,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[project.scripts]
+rab = "rab.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+

@@ -1,0 +1,10 @@
+{
+  "id": "manual",
+  "name": "Operator manual import",
+  "class": "INGEST",
+  "backend": "manual",
+  "bulk_acquisition": "prohibited",
+  "rights_default": "UNKNOWN",
+  "notes": "Rights and provenance are required for each occurrence."
+}
+

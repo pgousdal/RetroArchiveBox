@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Retro Archive Box fixity audit weekly
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+RandomizedDelaySec=1h
+
+[Install]
+WantedBy=timers.target
+

@@ -1,0 +1,10 @@
+{
+  "id": "fs-uae-amiga-malware-lab-v1",
+  "emulator": "fs-uae",
+  "input": "read-only",
+  "writable_layer": "disposable-overlay",
+  "persistent_changes": "derivative-only",
+  "native_scanners": ["VirusZ", "VirusExecutor"],
+  "scanner_artifacts_must_be_pinned": true
+}
+

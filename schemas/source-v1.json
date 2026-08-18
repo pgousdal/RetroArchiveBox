@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/source-v1.json",
+  "title": "RAB source policy v1",
+  "type": "object",
+  "required": ["id", "name", "class", "backend", "bulk_acquisition", "rights_default"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "name": {"type": "string"},
+    "class": {"enum": ["MIRROR", "COOPERATIVE_MIRROR", "ARCHIVE_COLLECTION", "PRESERVATION_DATABASE", "HISTORICAL_MIRROR", "INGEST", "PHYSICAL_MEDIA"]},
+    "backend": {"enum": ["rsync", "http", "https", "ftp", "bittorrent", "manual", "physical-media", "archive-org-targeted"]},
+    "bulk_acquisition": {"enum": ["allowed", "permission-required", "targeted-only", "prohibited"]},
+    "rights_default": {"enum": ["REDISTRIBUTABLE", "PRIVATE_LICENSED", "RESTRICTED", "UNKNOWN"]},
+    "base_url": {"type": "string"},
+    "notes": {"type": "string"}
+  },
+  "additionalProperties": false
+}
+

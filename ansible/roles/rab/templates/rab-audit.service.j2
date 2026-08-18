@@ -1,0 +1,14 @@
+[Unit]
+Description=Retro Archive Box fixity audit
+
+[Service]
+Type=oneshot
+User={{ rab_user }}
+Group={{ rab_group }}
+Environment=RAB_ROOT={{ rab_root }}
+ExecStart=/opt/rab/venv/bin/rab audit --fixity
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths={{ rab_root }}
+

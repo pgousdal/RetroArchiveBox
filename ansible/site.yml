@@ -1,0 +1,7 @@
+---
+- name: Provision Retro Archive Box
+  hosts: rab
+  become: true
+  roles:
+    - rab
+

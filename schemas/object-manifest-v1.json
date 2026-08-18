@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/object-manifest-v1.json",
+  "title": "RAB object manifest v1",
+  "type": "object",
+  "required": ["schema", "object_id", "hashes", "size", "media_type", "preservation_state", "created_at", "payload"],
+  "properties": {
+    "schema": {"type": "string"},
+    "object_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "hashes": {
+      "type": "object",
+      "required": ["sha256", "blake3", "sha1", "md5", "crc32"],
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "blake3": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "md5": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+        "crc32": {"type": "string", "pattern": "^[0-9a-f]{8}$"}
+      }
+    },
+    "size": {"type": "integer", "minimum": 0},
+    "media_type": {"type": "string", "minLength": 1},
+    "title": {"type": ["string", "null"]},
+    "preservation_state": {"enum": ["MASTER", "DERIVATIVE"]},
+    "derived_from": {"type": ["string", "null"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "payload": {"const": "master"}
+  },
+  "additionalProperties": false
+}
+

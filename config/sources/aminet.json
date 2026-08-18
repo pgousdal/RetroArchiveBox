@@ -1,0 +1,11 @@
+{
+  "id": "aminet",
+  "name": "Aminet",
+  "class": "COOPERATIVE_MIRROR",
+  "backend": "rsync",
+  "bulk_acquisition": "allowed",
+  "rights_default": "UNKNOWN",
+  "base_url": "rsync://main.aminet.net/aminet/",
+  "notes": "A package is incomplete unless both payload and original .readme are preserved. Confirm current operator policy before production acquisition."
+}
+

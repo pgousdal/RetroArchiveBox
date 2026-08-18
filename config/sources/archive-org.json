@@ -1,0 +1,11 @@
+{
+  "id": "archive-org",
+  "name": "Internet Archive targeted discovery",
+  "class": "ARCHIVE_COLLECTION",
+  "backend": "archive-org-targeted",
+  "bulk_acquisition": "targeted-only",
+  "rights_default": "UNKNOWN",
+  "base_url": "https://archive.org/",
+  "notes": "Targeted discovery and ingest only; never mirror the service wholesale."
+}
+
