@@ -20,6 +20,10 @@
     "rate_limit_bytes_per_second": {"type": "integer", "minimum": 1},
     "timeout_seconds": {"type": "integer", "minimum": 1},
     "retries": {"type": "integer", "minimum": 0},
+    "allow_redirects": {"type": "boolean"},
+    "staging_limit_bytes": {"type": "integer", "minimum": 1},
+    "minimum_free_space_bytes": {"type": "integer", "minimum": 0},
+    "torrent_client": {"type": "string"},
     "companion_rules": {"type": "object"},
     "metadata_rules": {"type": "object"},
     "notes": {"type": "string"}

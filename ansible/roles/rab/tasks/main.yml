@@ -6,6 +6,7 @@
       - python3-venv
       - python3-pip
       - rsync
+      - aria2
     state: present
     update_cache: true
 

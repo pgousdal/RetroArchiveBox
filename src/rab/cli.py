@@ -50,9 +50,15 @@ def parser() -> argparse.ArgumentParser:
     source_sub.add_parser("validate")
     source_status = source_sub.add_parser("status")
     source_status.add_argument("source_id")
+    source_plan = source_sub.add_parser("plan")
+    source_plan.add_argument("source_id")
+    source_plan.add_argument("--scope")
+    source_plan.add_argument("--path", action="append", dest="paths")
     source_sync = source_sub.add_parser("sync")
     source_sync.add_argument("source_id")
     source_sync.add_argument("--directory", type=Path)
+    source_sync.add_argument("--scope")
+    source_sync.add_argument("--path", action="append", dest="paths")
     source_sync.add_argument("--dry-run", action="store_true")
     torrent = sub.add_parser("torrent", help="preserve BitTorrent metadata")
     torrent_sub = torrent.add_subparsers(dest="torrent_command", required=True)
@@ -60,6 +66,7 @@ def parser() -> argparse.ArgumentParser:
     torrent_import.add_argument("path", type=Path)
     torrent_import.add_argument("--source", required=True)
     torrent_import.add_argument("--source-path", required=True)
+    torrent_import.add_argument("--download", action="store_true")
     get = sub.add_parser("get", help="export a logical package")
     get.add_argument("package")
     get.add_argument("--output", type=Path, required=True)
@@ -106,15 +113,25 @@ def run(args: argparse.Namespace) -> dict | list:
                 objects = db.execute("SELECT status,count(*) count FROM source_objects WHERE source_id=? GROUP BY status", (source.id,)).fetchall()
                 packages = db.execute("SELECT completeness,count(*) count FROM packages WHERE source_id=? GROUP BY completeness", (source.id,)).fetchall()
             return {"source": source.public(), "objects": [dict(x) for x in objects], "packages": [dict(x) for x in packages]}
+        if args.source_command == "plan":
+            return Acquisition(archive).plan_source(registry.get(args.source_id), scope=args.scope, paths=args.paths)
         if args.source_command == "sync":
             source = registry.get(args.source_id)
             acquisition = Acquisition(archive)
             if args.directory:
                 return acquisition.sync_aminet(source, args.directory)
-            return acquisition.run_rsync(source, dry_run=args.dry_run)
+            if source.backend.value in {"http", "https"}:
+                if source.companion_rules.get("required_suffix") == ".readme":
+                    return acquisition.acquire_http_aminet(source, args.paths or [])
+                objects = acquisition.acquire_http_paths(source, args.paths or [])
+                return {"source": source.id, "objects": objects, "outcome": "PASS"}
+            return acquisition.run_rsync(source, dry_run=args.dry_run, scope=args.scope)
     if args.command == "torrent":
         source = registry.get(args.source)
-        return preserve_torrent(Acquisition(archive), source, args.path, args.source_path)
+        acquisition = Acquisition(archive)
+        if args.download:
+            return acquisition.acquire_torrent(source, args.path, args.source_path)
+        return preserve_torrent(acquisition, source, args.path, args.source_path)
     if args.command == "get":
         return Acquisition(archive).get_package(args.package, args.output, args.with_readme)
     raise AssertionError(args.command)

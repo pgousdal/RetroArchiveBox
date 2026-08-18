@@ -28,6 +28,7 @@ rab verify sha256:HASH
 rab export sha256:HASH --output ./exported.adf
 rab source validate
 rab source list
+rab source plan aminet --path util/misc/rsync-2.5.5_bin.lha --path util/misc/rsync-2.5.5_bin.readme
 rab show aminet:comm/term/ncomm307
 rab get aminet:comm/term/ncomm307 --output ./package --with-readme
 pytest

@@ -54,6 +54,7 @@ def test_source_policy_always_declares_bulk_acquisition_and_rights():
 def test_runtime_registry_validates_all_shipped_sources():
     sources = SourceRegistry(ROOT / "config" / "sources").load()
     assert {"aminet", "archive-org", "manual", "torrent-import"} <= sources.keys()
+    assert sources["aminet"].enabled is False
 
 
 def test_no_destructive_sync_flags_or_preservation_bypass():

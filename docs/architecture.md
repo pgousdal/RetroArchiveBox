@@ -39,14 +39,17 @@ also requires the source to be enabled. Supported source classes are MIRROR,
 COOPERATIVE_MIRROR, ARCHIVE_COLLECTION, HISTORICAL_MIRROR, INGEST,
 PRESERVATION_DATABASE, and PHYSICAL_MEDIA. Initial backends are rsync,
 HTTP/HTTPS, and BitTorrent metadata/import; FTP is represented but is not yet a
-production crawler.
+production crawler. HTTP acquisition is bounded to explicit paths for
+qualification and package pairing.
 
 Acquisition writes only to `source-staging`. Completed transfers are hashed and
 optionally checked against an expected SHA-256 before calling the existing M1
 `Archive.ingest` boundary. `.part` files are rejected. HTTP uses timeouts, an
-identifiable User-Agent, bounded retries/backoff, and Range resume where the
-server supports it. rsync uses partial/delayed updates against staging and never
-uses deletion flags or targets preservation storage. Source state is separate
+identifiable User-Agent, bounded retries/backoff, explicit redirect policy,
+free-space/staging-limit preflight, and Range resume where the server supports
+it. Configured HTTP bandwidth limits are enforced by streaming throttling.
+rsync uses partial/delayed updates against staging and never uses deletion flags
+or targets preservation storage. Source state is separate
 from preservation state, so upstream disappearance records an event and marks
 the occurrence/package absent without deleting any object.
 
@@ -69,8 +72,10 @@ RAB preserves the original `.torrent` as an immutable object, calculates the
 BitTorrent v1 infohash from the exact bencoded `info` dictionary bytes, and
 records a source event linking metadata, provenance, and import. This supports
 an operator-managed torrent bootstrap followed by later policy-permitted source
-synchronization. RAB does not implement a torrent client or automatically start
-downloads in this milestone.
+synchronization. When explicitly requested, the BitTorrent backend invokes
+Debian-packaged `aria2c` with a staging-only destination, continuation,
+piece-integrity checking, no seeding, bounded connections, and optional download
+limit. Missing client binaries fail after metadata preservation.
 
 Provisioning installs Debian rsync and a hardened `rab-source@.service` template,
 but deliberately installs no source timer and starts no mirror. Scheduling is

@@ -27,15 +27,27 @@ class SourceDefinition:
     rate_limit: int | None
     timeout: int
     retries: int
+    allow_redirects: bool
+    staging_limit_bytes: int | None
+    minimum_free_space_bytes: int
+    torrent_client: str | None
     companion_rules: dict
     metadata_rules: dict
 
     @classmethod
     def from_dict(cls, value: dict) -> "SourceDefinition":
         required = {"id", "name", "class", "backend", "bulk_acquisition", "rights_default"}
+        allowed = required | {"location", "enabled", "mirror_authorized", "platforms", "notes",
+                              "schedule", "concurrency", "rate_limit_bytes_per_second",
+                              "timeout_seconds", "retries", "allow_redirects", "staging_limit_bytes",
+                              "minimum_free_space_bytes", "torrent_client", "companion_rules",
+                              "metadata_rules"}
         missing = sorted(required - value.keys())
         if missing:
             raise RabError(f"source definition missing: {', '.join(missing)}")
+        unknown = sorted(set(value) - allowed)
+        if unknown:
+            raise RabError(f"source definition has unknown fields: {', '.join(unknown)}")
         source_id = value["id"]
         if not isinstance(source_id, str) or not source_id or any(
             c not in "abcdefghijklmnopqrstuvwxyz0123456789-" for c in source_id
@@ -57,7 +69,16 @@ class SourceDefinition:
             raise RabError("concurrency must be between 1 and 16")
         if not isinstance(timeout, int) or timeout < 1 or not isinstance(retries, int) or retries < 0:
             raise RabError("timeout/retries must be non-negative integers")
-        location = value.get("location", value.get("base_url"))
+        allow_redirects = value.get("allow_redirects", False)
+        staging_limit = value.get("staging_limit_bytes")
+        minimum_free = value.get("minimum_free_space_bytes", 64 * 1024 * 1024)
+        if not isinstance(allow_redirects, bool):
+            raise RabError("allow_redirects must be boolean")
+        if staging_limit is not None and (not isinstance(staging_limit, int) or staging_limit <= 0):
+            raise RabError("staging_limit_bytes must be a positive integer")
+        if not isinstance(minimum_free, int) or minimum_free < 0:
+            raise RabError("minimum_free_space_bytes must be non-negative")
+        location = value.get("location")
         if location and backend in {Backend.HTTP, Backend.HTTPS, Backend.RSYNC}:
             scheme = urlparse(location).scheme
             expected = {Backend.HTTP: "http", Backend.HTTPS: "https", Backend.RSYNC: "rsync"}[backend]
@@ -68,6 +89,7 @@ class SourceDefinition:
             location, value.get("enabled", False), value.get("mirror_authorized", False),
             tuple(value.get("platforms", [])), value.get("notes", ""), value.get("schedule"),
             concurrency, value.get("rate_limit_bytes_per_second"), timeout, retries,
+            allow_redirects, staging_limit, minimum_free, value.get("torrent_client"),
             value.get("companion_rules", {}), value.get("metadata_rules", {}),
         )
         definition.validate_policy()
@@ -93,6 +115,10 @@ class SourceDefinition:
             "platforms": list(self.platforms), "notes": self.notes, "schedule": self.schedule,
             "concurrency": self.concurrency, "rate_limit_bytes_per_second": self.rate_limit,
             "timeout_seconds": self.timeout, "retries": self.retries,
+            "allow_redirects": self.allow_redirects,
+            "staging_limit_bytes": self.staging_limit_bytes,
+            "minimum_free_space_bytes": self.minimum_free_space_bytes,
+            "torrent_client": self.torrent_client,
             "companion_rules": self.companion_rules, "metadata_rules": self.metadata_rules,
         }
 

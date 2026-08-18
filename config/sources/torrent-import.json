@@ -6,5 +6,6 @@
   "bulk_acquisition": "prohibited",
   "rights_default": "UNKNOWN",
   "enabled": true,
+  "torrent_client": "aria2c",
   "notes": "Preserves original torrent metadata; content acquisition remains operator-controlled."
 }

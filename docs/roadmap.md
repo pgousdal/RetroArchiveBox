@@ -36,8 +36,27 @@ No release should call itself museum-grade until these are demonstrated.
 M2.2 includes the generic registry/acquisition boundary, deterministic Aminet
 package synchronization, original companion-readme preservation,
 version/deletion/recovery semantics, and a BitTorrent metadata foundation.
-Remaining M2 gaps include production operational experience with reviewed
-Aminet authorization, bandwidth-limit enforcement (the policy field exists), a
-production FTP crawler, invoking an external torrent client, and live-network
-qualification. The broad M2 programme is not claimed complete beyond the local,
-deterministic acceptance scope.
+At that point remaining M2 gaps included live-network qualification, resource
+hardening, and production torrent-client integration. Those areas are covered
+by M2.3 below; the broad M2 acceptance scope is now complete, while FTP remains
+an explicitly deferred non-blocking backend.
+
+## M2.3 qualification update (2026-08-18)
+
+A bounded live qualification completed against the official Aminet mirror
+`http://de.aminet.net/aminet/`, using explicit HTTP paths rather than a crawl.
+The run acquired two real packages (`util/misc/rsync-2.5.5_bin` and
+`util/cli/mirror`) and each original `.readme`, producing four immutable
+objects and two COMPLETE logical packages. Exports matched direct upstream
+downloads byte-for-byte. Re-running both package paths produced no additional
+masters or occurrences; fixity audited four objects with zero failures.
+
+The repository Aminet definition remains disabled and requires an explicit
+operator-reviewed policy copy for a live run. The official mirror listing
+identifies `de.aminet.net` as supporting HTTP and RSYNC; RAB uses conservative
+HTTP paths for bounded qualification. FTP remains modeled but deferred because
+it adds no capability to this qualified Aminet path. The aria2-backed torrent
+content backend is implemented and tested with a deterministic client stub;
+actual torrent-client execution remains an operational follow-up, not a reason
+to weaken preservation or claim live torrent evidence. M2 is complete for the
+defined acceptance scope; it is not museum-grade.
