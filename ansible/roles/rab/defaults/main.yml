@@ -3,4 +3,4 @@ rab_user: rab
 rab_group: rab
 rab_root: /var/lib/rab
 rab_source_dir: "{{ playbook_dir }}/.."
-
+rab_sources_dir: "{{ rab_source_dir }}/config/sources"

@@ -1,0 +1,7 @@
+Name: NComm
+Version: 3.07
+Short: Terminal communications package
+Author: Deterministic Fixture
+Architecture: m68k-amigaos
+Requires: AmigaOS 2.0+
+Date: 1996-01-01

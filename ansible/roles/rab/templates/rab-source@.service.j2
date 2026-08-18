@@ -1,0 +1,21 @@
+[Unit]
+Description=Retro Archive Box explicit source synchronization (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ rab_user }}
+Group={{ rab_group }}
+Environment=RAB_ROOT={{ rab_root }}
+Environment=RAB_SOURCES={{ rab_sources_dir }}
+ExecStart=/opt/rab/venv/bin/rab source sync %i
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths={{ rab_root }}
+
+# No timer is installed or enabled. Operators must review policy, enable the
+# source, and explicitly configure a considerate source-specific timer.

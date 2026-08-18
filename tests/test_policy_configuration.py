@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+from rab.sources import SourceRegistry
+
 
 ROOT = Path(__file__).parents[1]
 
@@ -47,3 +49,15 @@ def test_source_policy_always_declares_bulk_acquisition_and_rights():
         assert source["rights_default"] in {
             "REDISTRIBUTABLE", "PRIVATE_LICENSED", "RESTRICTED", "UNKNOWN"
         }
+
+
+def test_runtime_registry_validates_all_shipped_sources():
+    sources = SourceRegistry(ROOT / "config" / "sources").load()
+    assert {"aminet", "archive-org", "manual", "torrent-import"} <= sources.keys()
+
+
+def test_no_destructive_sync_flags_or_preservation_bypass():
+    implementation = (ROOT / "src/rab/acquisition.py").read_text()
+    assert '"--delete"' not in implementation
+    assert "archive.ingest(" in implementation
+    assert "shutil.copyfile(" not in implementation

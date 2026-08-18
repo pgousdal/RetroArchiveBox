@@ -4,8 +4,8 @@
   "class": "ARCHIVE_COLLECTION",
   "backend": "archive-org-targeted",
   "bulk_acquisition": "targeted-only",
+  "enabled": false,
   "rights_default": "UNKNOWN",
-  "base_url": "https://archive.org/",
+  "location": "https://archive.org/",
   "notes": "Targeted discovery and ingest only; never mirror the service wholesale."
 }
-

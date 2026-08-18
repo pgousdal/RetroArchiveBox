@@ -8,12 +8,16 @@ from pathlib import Path
 
 from .errors import RabError
 from .model import IngestRequest, Rights
+from .acquisition import Acquisition, preserve_torrent
+from .sources import SourceRegistry
 from .store import Archive
 
 
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="rab", description="Retro Archive Box")
     p.add_argument("--root", type=Path, default=Path(os.environ.get("RAB_ROOT", "/var/lib/rab")))
+    p.add_argument("--sources", type=Path, default=Path(os.environ.get(
+        "RAB_SOURCES", Path(__file__).parents[2] / "config" / "sources")))
     sub = p.add_subparsers(dest="command", required=True)
 
     ingest = sub.add_parser("ingest", help="ingest an immutable object")
@@ -38,19 +42,46 @@ def parser() -> argparse.ArgumentParser:
     audit = sub.add_parser("audit")
     audit.add_argument("--fixity", action="store_true")
     sub.add_parser("doctor")
+    source = sub.add_parser("source", help="inspect and operate configured sources")
+    source_sub = source.add_subparsers(dest="source_command", required=True)
+    source_sub.add_parser("list")
+    source_show = source_sub.add_parser("show")
+    source_show.add_argument("source_id")
+    source_sub.add_parser("validate")
+    source_status = source_sub.add_parser("status")
+    source_status.add_argument("source_id")
+    source_sync = source_sub.add_parser("sync")
+    source_sync.add_argument("source_id")
+    source_sync.add_argument("--directory", type=Path)
+    source_sync.add_argument("--dry-run", action="store_true")
+    torrent = sub.add_parser("torrent", help="preserve BitTorrent metadata")
+    torrent_sub = torrent.add_subparsers(dest="torrent_command", required=True)
+    torrent_import = torrent_sub.add_parser("import")
+    torrent_import.add_argument("path", type=Path)
+    torrent_import.add_argument("--source", required=True)
+    torrent_import.add_argument("--source-path", required=True)
+    get = sub.add_parser("get", help="export a logical package")
+    get.add_argument("package")
+    get.add_argument("--output", type=Path, required=True)
+    get.add_argument("--with-readme", action="store_true")
     return p
 
 
 def run(args: argparse.Namespace) -> dict | list:
     archive = Archive(args.root)
+    registry = SourceRegistry(args.sources)
     if args.command == "ingest":
         return archive.ingest(IngestRequest(
             args.path, args.source, args.source_path, Rights(args.rights),
             args.media_type, args.title, args.derived_from,
         ))
     if args.command == "search":
-        return archive.search(args.query)
+        objects = archive.search(args.query)
+        packages = Acquisition(archive).search_packages(args.query)
+        return {"packages": packages, "objects": objects}
     if args.command == "show":
+        if ":" in args.object and not args.object.startswith("sha256:"):
+            return Acquisition(archive).show_package(args.object)
         return archive.show(args.object)
     if args.command == "verify":
         return archive.verify(args.object)
@@ -60,6 +91,32 @@ def run(args: argparse.Namespace) -> dict | list:
         return archive.audit()
     if args.command == "doctor":
         return archive.doctor()
+    if args.command == "source":
+        if args.source_command == "list":
+            return [x.public() for x in registry.load().values()]
+        if args.source_command == "show":
+            return registry.get(args.source_id).public()
+        if args.source_command == "validate":
+            sources = registry.load()
+            return {"outcome": "PASS", "sources": sorted(sources), "count": len(sources)}
+        if args.source_command == "status":
+            source = registry.get(args.source_id)
+            Acquisition(archive)
+            with archive.db() as db:
+                objects = db.execute("SELECT status,count(*) count FROM source_objects WHERE source_id=? GROUP BY status", (source.id,)).fetchall()
+                packages = db.execute("SELECT completeness,count(*) count FROM packages WHERE source_id=? GROUP BY completeness", (source.id,)).fetchall()
+            return {"source": source.public(), "objects": [dict(x) for x in objects], "packages": [dict(x) for x in packages]}
+        if args.source_command == "sync":
+            source = registry.get(args.source_id)
+            acquisition = Acquisition(archive)
+            if args.directory:
+                return acquisition.sync_aminet(source, args.directory)
+            return acquisition.run_rsync(source, dry_run=args.dry_run)
+    if args.command == "torrent":
+        source = registry.get(args.source)
+        return preserve_torrent(Acquisition(archive), source, args.path, args.source_path)
+    if args.command == "get":
+        return Acquisition(archive).get_package(args.package, args.output, args.with_readme)
     raise AssertionError(args.command)
 
 

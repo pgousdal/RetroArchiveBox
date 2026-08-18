@@ -5,6 +5,7 @@
       - python3
       - python3-venv
       - python3-pip
+      - rsync
     state: present
     update_cache: true
 
@@ -37,6 +38,23 @@
     virtualenv_command: /usr/bin/python3 -m venv
   notify: Restart RAB audit timer
 
+- name: Create source staging directory
+  ansible.builtin.file:
+    path: "{{ rab_root }}/source-staging"
+    state: directory
+    owner: "{{ rab_user }}"
+    group: "{{ rab_group }}"
+    mode: "0750"
+
+- name: Install explicit source worker template without enabling synchronization
+  ansible.builtin.template:
+    src: rab-source@.service.j2
+    dest: /etc/systemd/system/rab-source@.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
 - name: Install fixity audit service
   ansible.builtin.template:
     src: rab-audit.service.j2
@@ -63,4 +81,3 @@
     enabled: true
     state: started
     daemon_reload: true
-

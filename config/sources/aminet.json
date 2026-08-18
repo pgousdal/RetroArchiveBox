@@ -4,8 +4,16 @@
   "class": "COOPERATIVE_MIRROR",
   "backend": "rsync",
   "bulk_acquisition": "allowed",
+  "enabled": false,
+  "mirror_authorized": true,
   "rights_default": "UNKNOWN",
-  "base_url": "rsync://main.aminet.net/aminet/",
+  "location": "rsync://main.aminet.net/aminet/",
+  "platforms": ["Amiga"],
+  "schedule": "weekly",
+  "concurrency": 2,
+  "timeout_seconds": 120,
+  "retries": 3,
+  "companion_rules": {"payload_suffix": ".lha", "required_suffix": ".readme"},
+  "metadata_rules": {"format": "aminet-readme", "preserve_original": true},
   "notes": "A package is incomplete unless both payload and original .readme are preserved. Confirm current operator policy before production acquisition."
 }
-

@@ -6,10 +6,12 @@ analysis, repair, conversion, emulator use, and convenient packaging happen on
 explicit derivatives or disposable copies.
 
 This repository currently implements the acceptance-critical preservation
-core: content-addressed ingest, independent occurrences/provenance, rights,
+core and M2 acquisition framework: content-addressed ingest, independent occurrences/provenance, rights,
 sidecar manifests, append-only PREMIS-inspired events, fixity verification,
 byte-identical original export, policy checks, appliance diagnostics, and an
-Ansible provisioning baseline.
+Ansible provisioning baseline, a typed source registry, safe staging
+acquisition, Aminet payload-plus-original-readme packages, and preservation of
+BitTorrent metadata.
 
 ## Quick start
 
@@ -24,6 +26,10 @@ rab ingest ./example.adf --source manual --source-path example.adf \
 rab search example
 rab verify sha256:HASH
 rab export sha256:HASH --output ./exported.adf
+rab source validate
+rab source list
+rab show aminet:comm/term/ncomm307
+rab get aminet:comm/term/ncomm307 --output ./package --with-readme
 pytest
 ```
 
@@ -33,4 +39,3 @@ to reconstruct the principal preservation catalogue.
 
 See [docs/architecture.md](docs/architecture.md) and
 [docs/roadmap.md](docs/roadmap.md) for boundaries and milestone status.
-

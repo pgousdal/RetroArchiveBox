@@ -1,5 +1,11 @@
 # v0.1 milestone status
 
+Repository-audit note (2026-08-18): the implementation and 11-test baseline
+contained the reported M0/M1 preservation core, but Git history contained only
+one commit named `M0: Initial commit`; it did not record a distinct M1 commit.
+Milestone claims below therefore reflect inspected code and validation rather
+than inferred commit history.
+
 ## Implemented foundation
 
 - Debian packaging/provisioning baseline and a systemd fixity timer
@@ -25,3 +31,13 @@
 
 No release should call itself museum-grade until these are demonstrated.
 
+## M2 qualification status
+
+M2.2 includes the generic registry/acquisition boundary, deterministic Aminet
+package synchronization, original companion-readme preservation,
+version/deletion/recovery semantics, and a BitTorrent metadata foundation.
+Remaining M2 gaps include production operational experience with reviewed
+Aminet authorization, bandwidth-limit enforcement (the policy field exists), a
+production FTP crawler, invoking an external torrent client, and live-network
+qualification. The broad M2 programme is not claimed complete beyond the local,
+deterministic acceptance scope.

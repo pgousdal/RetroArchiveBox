@@ -1,0 +1,10 @@
+{
+  "id": "torrent-import",
+  "name": "Operator-supplied BitTorrent metadata",
+  "class": "INGEST",
+  "backend": "bittorrent",
+  "bulk_acquisition": "prohibited",
+  "rights_default": "UNKNOWN",
+  "enabled": true,
+  "notes": "Preserves original torrent metadata; content acquisition remains operator-controlled."
+}

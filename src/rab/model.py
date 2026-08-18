@@ -27,6 +27,24 @@ class SourceClass(StrEnum):
     PHYSICAL_MEDIA = "PHYSICAL_MEDIA"
 
 
+class Backend(StrEnum):
+    RSYNC = "rsync"
+    HTTP = "http"
+    HTTPS = "https"
+    FTP = "ftp"
+    BITTORRENT = "bittorrent"
+    MANUAL = "manual"
+    PHYSICAL_MEDIA = "physical-media"
+    ARCHIVE_ORG_TARGETED = "archive-org-targeted"
+
+
+class Completeness(StrEnum):
+    COMPLETE = "COMPLETE"
+    PAYLOAD_MISSING = "PAYLOAD_MISSING"
+    README_MISSING = "README_MISSING"
+    ACQUISITION_FAILED = "ACQUISITION_FAILED"
+
+
 @dataclass(frozen=True)
 class IngestRequest:
     path: Path
@@ -36,4 +54,3 @@ class IngestRequest:
     media_type: str
     title: str | None = None
     derived_from: str | None = None
-
