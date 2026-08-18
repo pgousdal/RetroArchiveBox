@@ -11,6 +11,7 @@ from .errors import RabError
 from .errors import IntegrityError, PolicyError
 from .authority import Authority
 from .redump import RedumpAuthority
+from .additional_authorities import AdditionalAuthority
 
 
 class CatalogueAPI:
@@ -41,6 +42,9 @@ class CatalogueAPI:
             return 200, [x.public() for x in self.registry.load().values()] if self.registry else []
         if route == "/api/v1/authorities":
             return 200, Authority(self.catalogue.archive).list()
+        m = re.fullmatch(r"/api/v1/authorities/([0-9a-f]{64})/records", route)
+        if m:
+            return 200, AdditionalAuthority(self.catalogue.archive).records(m.group(1))
         if route.startswith("/api/v1/authorities/"):
             dataset = unquote(route.removeprefix("/api/v1/authorities/"))
             rows = [x for x in Authority(self.catalogue.archive).list()

@@ -197,6 +197,7 @@ class Authority:
             "source": source or str(path), "acquired_at": now(), "parser_version": PARSER_VERSION,
             "rights": rights.value, "imported_at": now(), "status": "FAILED" if error else "IMPORTED",
             "error": error, "record_count": len(records), "selected_members": members or [],
+            "authority_purpose": "IDENTIFICATION",
         }
         self._write_metadata(metadata)
         with sqlite3.connect(self.db_path) as db:
@@ -269,6 +270,10 @@ class Authority:
                for path in self.metadata.glob("*.json")):
             from .redump import RedumpAuthority
             RedumpAuthority(self.archive).rebuild_into_existing()
+        if any(json.loads(path.read_text(encoding="utf-8")).get("authority_id") in {"NO_INTRO", "MAME"}
+               for path in self.metadata.glob("*.json")):
+            from .additional_authorities import AdditionalAuthority
+            AdditionalAuthority(self.archive).rebuild_into_existing()
         return self.status()
 
     def status(self) -> dict:
@@ -280,6 +285,8 @@ class Authority:
             if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='redump_discs'").fetchone():
                 result["redump_discs"] = db.execute("SELECT count(*) FROM redump_discs").fetchone()[0]
                 result["redump_tracks"] = db.execute("SELECT count(*) FROM redump_tracks").fetchone()[0]
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='component_records'").fetchone():
+                result["components"] = db.execute("SELECT count(*) FROM component_records").fetchone()[0]
             return result
 
     def list(self) -> list[dict]:
@@ -293,6 +300,7 @@ class Authority:
                 if sidecar.is_file():
                     metadata = json.loads(sidecar.read_text(encoding="utf-8"))
                     value["authority_adapter"] = metadata.get("authority_adapter", "tosec")
+                    value["authority_purpose"] = metadata.get("authority_purpose", "IDENTIFICATION")
                     value["source_objects"] = metadata.get("source_objects", [value["source_object"]])
                     value["source_objects_sources"] = metadata.get("source_objects_sources", [value["source"]])
                 if isinstance(value.get("selected_members"), str):
@@ -383,6 +391,11 @@ class Authority:
             db.row_factory = sqlite3.Row
             rows = [dict(x) for x in db.execute("SELECT * FROM assertions WHERE object_sha256=? ORDER BY created_at", (sha,))]
         for row in rows:
+            dataset_sidecar = self.metadata / f"{row['dataset_id']}.json"
+            dataset_metadata = json.loads(dataset_sidecar.read_text(encoding="utf-8")) if dataset_sidecar.is_file() else {}
+            row["authority"] = dataset_metadata.get("authority_id", "TOSEC")
+            row["authority_type"] = dataset_metadata.get("authority_type", "VERIFICATION_AUTHORITY")
+            row["authority_purpose"] = dataset_metadata.get("authority_purpose", "IDENTIFICATION")
             for key in ("matched_hashes", "metadata", "evidence"):
                 row[key] = json.loads(row[key])
         return rows
@@ -419,12 +432,14 @@ class Authority:
                 failures.append({"type": "assertion_object_missing"})
             has_redump = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='redump_discs'").fetchone()
             redump_discs = {row[0] for row in db.execute("SELECT disc_id FROM redump_discs")} if has_redump else set()
+            has_components = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='component_records'").fetchone()
+            component_records = {row[0] for row in db.execute("SELECT record_id FROM component_records")} if has_components else set()
             if any(row[0] not in redump_discs and row[0] not in
-                   {record[0] for record in db.execute("SELECT record_id FROM records")}
+                   {record[0] for record in db.execute("SELECT record_id FROM records")} and row[0] not in component_records
                    for row in db.execute("SELECT record_id FROM assertions WHERE record_id IS NOT NULL")):
                 failures.append({"type": "assertion_record_missing"})
             for dataset_id, expected in db.execute("SELECT dataset_id,record_count FROM datasets"):
-                if db.execute("SELECT authority_id FROM datasets WHERE dataset_id=?", (dataset_id,)).fetchone()[0] == "REDUMP":
+                if db.execute("SELECT authority_id FROM datasets WHERE dataset_id=?", (dataset_id,)).fetchone()[0] in {"REDUMP", "NO_INTRO", "MAME"}:
                     continue
                 actual = db.execute("SELECT count(*) FROM records WHERE dataset_id=?", (dataset_id,)).fetchone()[0]
                 if actual != expected:
@@ -434,4 +449,7 @@ class Authority:
             from .redump import RedumpAuthority
             redump_result = RedumpAuthority(self.archive).verify()
             failures.extend(redump_result["failures"])
+        if any(row[0] in {"NO_INTRO", "MAME"} for row in db.execute("SELECT authority_id FROM datasets")):
+            from .additional_authorities import AdditionalAuthority
+            failures.extend(AdditionalAuthority(self.archive).verify()["failures"])
         return {"outcome": "PASS" if not failures else "FAIL", "failures": failures}

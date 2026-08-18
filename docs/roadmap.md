@@ -90,6 +90,32 @@ qualified authority-data and synthetic structural-matching scope. Physical
 drive qualification, dumping, conversion, Redump submission evidence, and
 M4.3 authorities remain future work. Museum-grade status remains unclaimed.
 
+### M4.3 additional authority integration (2026-08-18)
+
+M4.3 adds contextual authority-purpose classification and an indexed component
+adapter for No-Intro-style ROM DAT/XML and official MAME software-list XML.
+MAME was qualified from official `mamedev/mame` commit
+`17e1e9419edc5c483bc6a4a387c7e1d7b7341e32` using Amiga floppy and CD lists:
+792 entries and 801 components, including 779 ROM and 22 disk components.
+The artifacts crossed M1, authority verify passed, rebuild from preserved
+artifacts was semantically equivalent, and preservation non-mutation passed.
+
+No-Intro's official DAT-o-MATIC catalog was investigated. Its standard DAT
+download is a dynamic token POST flow that was not successfully acquired by
+the bounded non-authenticated qualification client, so No-Intro real-data
+qualification is **NOT QUALIFIED**. The parser/model and deterministic tests
+remain implemented; no third-party collection was used.
+
+SPS is classified as `DUMP_VERIFICATION`, with explicit IPF/sector/track/flux
+representation boundaries, but no legitimate public machine-readable SPS
+authority artifact was available. SPS real qualification is **NOT QUALIFIED**;
+no restricted library, membership area, tool or IPF was bypassed.
+
+FDB remains historical catalogue/manifest evidence. M4.3 is **COMPLETE** for
+the accessible official-authority scope, with No-Intro and SPS limitations
+explicitly retained. Physical dumping, malware, and Archive.org work remain
+future milestones. Museum-grade status remains **NO**.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

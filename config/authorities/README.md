@@ -13,3 +13,9 @@ Redump DAT and CUE artifacts are `VERIFICATION_AUTHORITY` data describing
 disc structure. A preserved ISO/data-track extraction is not automatically a
 complete Redump disc representation, and Redump identification does not grant
 redistribution rights.
+
+Purpose classifications are maintained in `purposes.json`. They describe what
+an authority's evidence applies to; they are not a cross-authority trust
+ranking. MAME component identification and No-Intro ROM identification do not
+establish Redump optical structure. SPS remains modeled as floppy
+`DUMP_VERIFICATION` pending a legitimate public machine-readable source.

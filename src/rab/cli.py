@@ -15,6 +15,7 @@ from .catalogue import Catalogue
 from .api import run_server
 from .authority import Authority
 from .redump import RedumpAuthority
+from .additional_authorities import AdditionalAuthority
 
 
 def parser() -> argparse.ArgumentParser:
@@ -121,6 +122,15 @@ def parser() -> argparse.ArgumentParser:
     redump_disc.add_argument("disc_id")
     redump_tracks = redump_sub.add_parser("tracks")
     redump_tracks.add_argument("disc_id")
+    for authority_name in ("nointro", "mame"):
+        additional = authority_sub.add_parser(authority_name)
+        additional_sub = additional.add_subparsers(dest="additional_command", required=True)
+        additional_import = additional_sub.add_parser("import")
+        additional_import.add_argument("path", type=Path)
+        additional_import.add_argument("--release", required=True)
+        additional_import.add_argument("--source", required=True)
+        additional_records = additional_sub.add_parser("records")
+        additional_records.add_argument("--dataset")
     api = sub.add_parser("api", help="run the read-only catalogue API")
     api.add_argument("--host", default="127.0.0.1")
     api.add_argument("--port", type=int, default=8000)
@@ -208,6 +218,13 @@ def run(args: argparse.Namespace) -> dict | list:
                 )
             disc = redump_authority.show_disc(args.disc_id)
             return disc if args.redump_command == "disc" else disc["tracks"]
+        if args.authority_command in {"nointro", "mame"}:
+            additional_authority = AdditionalAuthority(archive)
+            authority_id = "NO_INTRO" if args.authority_command == "nointro" else "MAME"
+            if args.additional_command == "import":
+                return additional_authority.import_file(args.path, authority_id=authority_id,
+                                                        release=args.release, source=args.source)
+            return additional_authority.records(args.dataset, authority_id)
         if args.authority_command == "list":
             return authority.list()
         if args.authority_command == "show":

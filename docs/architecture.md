@@ -253,3 +253,73 @@ No copyrighted disc image was downloaded, so a real legal disc
 `EXACT_MATCH` is **NOT QUALIFIED**. Synthetic single-track, mixed-mode,
 partial, conflict, ordering, rights, API, and rebuild tests remain
 network-independent.
+
+## Authority purpose and evidence scope (M4.3)
+
+Authority purpose is contextual and is never converted into a global ranking:
+
+| Authority | Purpose | What it can establish |
+|---|---|---|
+| TOSEC | `IDENTIFICATION` | broad historical file/software identification |
+| Redump | `STRUCTURAL_VERIFICATION` | complete optical disc/session/track evidence |
+| No-Intro | `IDENTIFICATION` | ROM/cartridge/firmware component identity |
+| SPS/CAPS/IPF | `DUMP_VERIFICATION` | format-specific floppy preservation evidence |
+| MAME | `EMULATION_REFERENCE`, `IDENTIFICATION` | emulation-list component reference |
+| FDB | `HISTORICAL_CATALOGUE`, `HISTORICAL_MANIFEST` | historical inventory/discovery clues |
+
+An assertion exposes its authority and `authority_purpose` independently.
+Cross-authority disagreement is retained as independent assertions. Rights and
+future malware observations are separate state and are never changed by an
+authority match. FDB remains historical evidence, not dump verification.
+
+## Component authorities (M4.3)
+
+`component_records` is the disposable indexed component model used by No-Intro
+and MAME. It preserves entry ID, canonical name, original system, component
+type, component name, size, CRC32, MD5, SHA-1, and raw metadata. MAME `ROM` and
+`DISK` components remain distinct; a component match is explicitly marked
+`component_only` and does not identify a complete software entry or an optical
+disc. MAME CHD references therefore remain independent of Redump optical
+identity and RAB preservation SHA-256.
+
+MAME candidate lookup uses indexed SHA-1/size, MD5/size, or CRC32/size queries
+where those fields exist. Disk components may have SHA-1 without a size. The
+No-Intro adapter uses the same component model and conservative hash semantics.
+No filename-only match is possible.
+
+## No-Intro and SPS qualification boundaries
+
+The official No-Intro DAT-o-MATIC service is public and documents its standard
+DAT/P-C/XML outputs, anti-piracy policy and system-specific organization. Its
+current download action is a stateful dynamic POST/token flow; the qualification
+environment could inspect the official catalog but could not obtain the
+official DAT artifact through a simple non-authenticated automated request.
+RAB therefore does not claim real No-Intro qualification and does not use an
+Archive.org No-Intro collection as a substitute.
+
+The official SPS/Softpres site did not provide a usable public machine-readable
+authority artifact in this qualification environment. RAB classifies SPS as
+`DUMP_VERIFICATION` and keeps the future representation boundary explicit:
+filesystem extraction, sector image, track image, flux/low-level image and IPF
+are distinct representations and are not automatically equivalent. No SPS IPF
+library, tool, membership area, or copyrighted image was bypassed or imported.
+SPS real qualification is **NOT QUALIFIED** pending a legitimate public
+authority-data route.
+
+## Bounded official MAME qualification
+
+Official MAME metadata was read from the `mamedev/mame` repository at commit
+`17e1e9419edc5c483bc6a4a387c7e1d7b7341e32`. The bounded preserved subset was
+`hash/amiga_flop.xml` (410,553 bytes) and `hash/amiga_cd.xml` (15,524 bytes),
+both obtained from official raw GitHub URLs at that commit. SHA-256 values are
+`39f82788640d4de030182fa5f16b541e58d9f9fd2b13814b7cb850cc8a8d5400` and
+`b65a05f8d7841d1791cac6e792283917c6da8c81ffe5db99b8d048bad0fcc23a`.
+
+The real MAME import produced 792 software entries and 801 components: 779
+ROM components and 22 disk components. SHA-1 coverage was 801/801, CRC32
+coverage 779/801, and MD5 was absent from this subset. Parts, interfaces,
+`dataarea`/`diskarea`, supported status, descriptions, years, publishers and
+other original metadata were preserved. `authority verify` passed; deleting
+the authority DB and rebuilding from the two M1 objects produced semantic
+equivalence and byte-identical preservation objects. No content images were
+downloaded, so real legal content `EXACT_MATCH` is **NOT QUALIFIED**.

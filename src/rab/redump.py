@@ -124,6 +124,7 @@ class RedumpAuthority:
         metadata = {
             "dataset_id": dataset_id, "authority_id": "REDUMP", "authority_type": "VERIFICATION_AUTHORITY",
             "authority_adapter": "redump", "release_identity": release_identity,
+            "authority_purpose": "STRUCTURAL_VERIFICATION",
             "release_version": header.findtext("version"), "release_date": header.findtext("date"),
             "source_object": dat_object, "source_objects": [dat_object, cue_object],
             "source": dat_source, "source_objects_sources": [dat_source, cues_source],

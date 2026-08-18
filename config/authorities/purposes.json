@@ -1,0 +1,11 @@
+{
+  "schema": "rab-authority-purpose-v1",
+  "authorities": {
+    "TOSEC": {"purposes": ["IDENTIFICATION"], "media": "broad software/media", "strength": "hash/name identification within supplied records"},
+    "REDUMP": {"purposes": ["STRUCTURAL_VERIFICATION"], "media": "optical discs", "strength": "complete ordered disc/session/track evidence"},
+    "NO_INTRO": {"purposes": ["IDENTIFICATION"], "media": "ROM/cartridge/firmware components", "strength": "component hash identification"},
+    "SPS": {"purposes": ["DUMP_VERIFICATION"], "media": "floppy low-level/preservation representations", "strength": "format-specific preservation evidence; public qualification pending"},
+    "MAME": {"purposes": ["EMULATION_REFERENCE", "IDENTIFICATION"], "media": "emulation software-list components", "strength": "component reference, not general preservation verification"},
+    "FDB": {"purposes": ["HISTORICAL_CATALOGUE", "HISTORICAL_MANIFEST"], "media": "historical catalogue metadata", "strength": "discovery and historical inventory only"}
+  }
+}

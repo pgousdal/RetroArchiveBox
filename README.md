@@ -113,3 +113,23 @@ size/count, LBA/index information, and per-track Redump hashes. A complete
 disc match requires structural and per-track evidence. An ISO or one matching
 data track cannot identify a mixed-mode disc. Redump identification never
 changes preservation identity or redistribution rights.
+
+## M4.3 Additional authorities
+
+RAB now classifies authority purpose rather than applying a global trust
+ranking. TOSEC is `IDENTIFICATION`; Redump is `STRUCTURAL_VERIFICATION` for
+complete optical layouts; No-Intro is `IDENTIFICATION` for ROM-like components;
+SPS is `DUMP_VERIFICATION` for format-specific floppy preservation evidence;
+MAME is `EMULATION_REFERENCE` plus component identification; FDB is a
+`HISTORICAL_CATALOGUE`/`HISTORICAL_MANIFEST`. These purposes are contextual,
+not a ranking. MAME component recognition does not verify a preservation dump,
+and a No-Intro match does not identify optical structure.
+
+The MAME adapter preserves official software-list XML through M1 and keeps ROM
+and disk components, parts, interfaces, regions and canonical metadata
+separate. No-Intro's parser is implemented for standard DAT/XML component data,
+but official DAT download qualification is currently not qualified because the
+public DAT-o-MATIC flow requires a dynamic token POST that did not produce a
+download in this environment. No SPS public machine-readable authority
+artifact was available under the qualification policy. No unofficial packs or
+content collections were substituted.
