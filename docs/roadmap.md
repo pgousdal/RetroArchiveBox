@@ -41,7 +41,7 @@ hash evidence, and provenance. `EXACT_MATCH` is not a source or rights claim,
 and a filename alone cannot produce it. Historical releases are never
 overwritten.
 
-M4.2 is reserved for Redump and M4.3 for additional authorities. Historical
+M4.3 is reserved for additional authorities. Historical
 Amiga FDB datasets remain historical catalogues/manifests. Archive.org direct
 item/collection archaeology, explicit collection authorization, official
 torrent transport selection, and TOSEC content bootstrapping remain future M7
@@ -70,6 +70,25 @@ real content `EXACT_MATCH` is therefore **NOT QUALIFIED**, without downloading
 content or manufacturing a match. Deterministic synthetic match and rights
 tests pass. M4.1 is **COMPLETE** for the qualified authority-data scope, with
 that explicit real-content limitation. M4.2 and M4.3 remain untouched.
+
+### M4.2 Redump optical authority
+
+M4.2 adds Redump through the generic authority preservation and assertion
+boundary without flattening optical identity into one file hash. Official
+Redump DAT and CUE artifacts are independently preserved through M1; the
+disposable authority index represents 596 Amiga CD discs and 942 ordered
+session/track records. Data/audio tracks, MODE1/MODE2 sector geometry,
+multi-track and multi-session layouts, INDEX information, per-track hashes,
+partial representations, conflicts, and conservative platform mapping are
+implemented and tested.
+
+Bounded qualification used only the official Redump Amiga CD DAT/CUE endpoints.
+Authority verify passed, derived database deletion/rebuild was semantically
+equivalent, and preservation non-mutation passed. No disc images were fetched;
+real legal disc `EXACT_MATCH` is **NOT QUALIFIED**. M4.2 is **COMPLETE** for the
+qualified authority-data and synthetic structural-matching scope. Physical
+drive qualification, dumping, conversion, Redump submission evidence, and
+M4.3 authorities remain future work. Museum-grade status remains unclaimed.
 
 ## M3 catalogue, search & API
 

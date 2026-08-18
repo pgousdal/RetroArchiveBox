@@ -6,7 +6,8 @@ analysis, repair, conversion, emulator use, and convenient packaging happen on
 explicit derivatives or disposable copies.
 
 This repository currently implements the acceptance-critical preservation
-core and M2 acquisition framework: content-addressed ingest, independent occurrences/provenance, rights,
+core, M2 acquisition framework, generic authorities, and Redump optical-disc
+model: content-addressed ingest, independent occurrences/provenance, rights,
 sidecar manifests, append-only PREMIS-inspired events, fixity verification,
 byte-identical original export, policy checks, appliance diagnostics, and an
 Ansible provisioning baseline, a typed source registry, safe staging
@@ -101,3 +102,14 @@ fetching it and still rejects XML entities. A multi-ROM Atari ST RAW DAT and
 UTF-8 names were parsed successfully. Real content `EXACT_MATCH` remains
 `NOT QUALIFIED` because no legally suitable matching content object was
 available; no content set was downloaded.
+
+## M4.2 Redump optical authority
+
+RAB treats Redump as optical-structure authority, not as a flat hash list.
+Official Redump DAT and CUE artifacts cross M1 independently; parsed Redump
+disc/session/track tables are disposable. `rab authority redump import DAT CUES`
+indexes canonical disc metadata, track order, data/audio type, mode, sector
+size/count, LBA/index information, and per-track Redump hashes. A complete
+disc match requires structural and per-track evidence. An ISO or one matching
+data track cannot identify a mixed-mode disc. Redump identification never
+changes preservation identity or redistribution rights.

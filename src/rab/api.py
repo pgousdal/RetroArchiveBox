@@ -10,6 +10,7 @@ from .catalogue import Catalogue
 from .errors import RabError
 from .errors import IntegrityError, PolicyError
 from .authority import Authority
+from .redump import RedumpAuthority
 
 
 class CatalogueAPI:
@@ -45,6 +46,10 @@ class CatalogueAPI:
             rows = [x for x in Authority(self.catalogue.archive).list()
                     if x["dataset_id"].startswith(dataset) or x["release_identity"] == dataset]
             return (200, rows[0]) if rows else (404, {"error": "not_found"})
+        m = re.fullmatch(r"/api/v1/redump/discs/([0-9a-f]{64})(/tracks)?", route)
+        if m:
+            disc = RedumpAuthority(self.catalogue.archive).show_disc(m.group(1))
+            return 200, disc["tracks"] if m.group(2) else disc
         if route == "/api/v1/search":
             q = query.get("q", [""])[0]
             try:

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/optical-disc-v1.json",
+  "title": "RAB optical disc observation",
+  "type": "object",
+  "required": ["title", "sessions"],
+  "properties": {
+    "title": {"type": "string"},
+    "system": {"type": "string"},
+    "category": {"type": ["string", "null"]},
+    "sessions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["number", "tracks"],
+        "properties": {
+          "number": {"type": "integer", "minimum": 1},
+          "tracks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["number", "session", "track_type", "mode", "sector_size", "indexes"],
+              "properties": {
+                "number": {"type": "integer", "minimum": 1},
+                "session": {"type": "integer", "minimum": 1},
+                "track_type": {"enum": ["DATA", "AUDIO"]},
+                "mode": {"type": "string"},
+                "sector_size": {"type": "integer", "minimum": 1},
+                "sector_count": {"type": ["integer", "null"], "minimum": 0},
+                "start_lba": {"type": ["integer", "null"]},
+                "pregap": {"type": ["integer", "null"], "minimum": 0},
+                "postgap": {"type": ["integer", "null"], "minimum": 0},
+                "indexes": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+                "file_name": {"type": "string"},
+                "hashes": {"type": "object"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

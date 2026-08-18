@@ -244,36 +244,61 @@ class Authority:
             master = self.archive.object_dir(source) / "master"
             if not master.is_file():
                 raise IntegrityError(f"authority source object missing: {source}")
-            records: list[AuthorityRecord] = []
-            if metadata["status"] == "IMPORTED":
-                for member, data in self._members(master, master.read_bytes(), set(metadata.get("selected_members") or []) or None):
-                    _, parsed = parse_tosec(data, member)
-                    records.extend(parsed)
             with sqlite3.connect(self.db_path) as db:
                 db.execute("INSERT INTO datasets VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                            tuple(metadata[k] for k in ("dataset_id", "authority_id", "authority_type", "release_identity",
                            "release_version", "release_date", "source_object", "source", "acquired_at", "parser_version",
                            "rights", "imported_at", "status", "error", "record_count"))
                            + (json.dumps(metadata.get("selected_members", []), sort_keys=True),))
+            records: list[AuthorityRecord] = []
+            if metadata.get("authority_id") != "TOSEC":
+                continue
+            if metadata["status"] == "IMPORTED":
+                for member, data in self._members(master, master.read_bytes(), set(metadata.get("selected_members") or []) or None):
+                    _, parsed = parse_tosec(data, member)
+                    records.extend(parsed)
+            with sqlite3.connect(self.db_path) as db:
                 self._insert_records(db, metadata["dataset_id"], records)
         self.match_all()
 
     def rebuild(self) -> dict:
         self._rebuild_index()
+        # Optical adapters own their additional derived tables but share this
+        # preserved dataset metadata and SQLite authority database.
+        if any(json.loads(path.read_text(encoding="utf-8")).get("authority_id") == "REDUMP"
+               for path in self.metadata.glob("*.json")):
+            from .redump import RedumpAuthority
+            RedumpAuthority(self.archive).rebuild_into_existing()
         return self.status()
 
     def status(self) -> dict:
         self.initialize()
         with sqlite3.connect(self.db_path) as db:
-            return {"datasets": db.execute("SELECT count(*) FROM datasets").fetchone()[0],
-                    "records": db.execute("SELECT count(*) FROM records").fetchone()[0],
-                    "assertions": db.execute("SELECT count(*) FROM assertions").fetchone()[0]}
+            result = {"datasets": db.execute("SELECT count(*) FROM datasets").fetchone()[0],
+                      "records": db.execute("SELECT count(*) FROM records").fetchone()[0],
+                      "assertions": db.execute("SELECT count(*) FROM assertions").fetchone()[0]}
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='redump_discs'").fetchone():
+                result["redump_discs"] = db.execute("SELECT count(*) FROM redump_discs").fetchone()[0]
+                result["redump_tracks"] = db.execute("SELECT count(*) FROM redump_tracks").fetchone()[0]
+            return result
 
     def list(self) -> list[dict]:
         self.initialize()
         with sqlite3.connect(self.db_path) as db:
             db.row_factory = sqlite3.Row
-            return [dict(x) for x in db.execute("SELECT * FROM datasets ORDER BY imported_at, dataset_id")]
+            result = []
+            for row in db.execute("SELECT * FROM datasets ORDER BY imported_at, dataset_id"):
+                value = dict(row)
+                sidecar = self.metadata / f"{value['dataset_id']}.json"
+                if sidecar.is_file():
+                    metadata = json.loads(sidecar.read_text(encoding="utf-8"))
+                    value["authority_adapter"] = metadata.get("authority_adapter", "tosec")
+                    value["source_objects"] = metadata.get("source_objects", [value["source_object"]])
+                    value["source_objects_sources"] = metadata.get("source_objects_sources", [value["source"]])
+                if isinstance(value.get("selected_members"), str):
+                    value["selected_members"] = json.loads(value["selected_members"])
+                result.append(value)
+            return result
 
     def _candidate(self, db, field: str, value: str, size: int) -> list[sqlite3.Row]:
         db.row_factory = sqlite3.Row
@@ -281,7 +306,8 @@ class Authority:
 
     def match(self, identifier: str, dataset_id: str | None = None) -> list[dict]:
         self.initialize(); sha = self.archive.resolve(identifier); obj = self.archive.show(sha)
-        datasets = [dataset_id] if dataset_id else [x["dataset_id"] for x in self.list()]
+        datasets = [dataset_id] if dataset_id else [x["dataset_id"] for x in self.list()
+                                                     if x["authority_id"] == "TOSEC"]
         output = []
         with sqlite3.connect(self.db_path) as db:
             db.row_factory = sqlite3.Row
@@ -363,6 +389,16 @@ class Authority:
 
     def verify(self) -> dict:
         self.initialize(); failures = []
+        for metadata_path in sorted(self.metadata.glob("*.json")):
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            for object_id in metadata.get("source_objects", [metadata.get("source_object")]):
+                if not object_id:
+                    continue
+                try:
+                    self.archive.verify(object_id, record_event=False)
+                except (IntegrityError, RabError):
+                    failures.append({"type": "source_object_fixity_failure",
+                                     "dataset_id": metadata.get("dataset_id"), "object_id": object_id})
         with sqlite3.connect(self.db_path) as db:
             for row in db.execute("SELECT * FROM datasets"):
                 source = row[6].removeprefix("sha256:")
@@ -381,11 +417,21 @@ class Authority:
                 object_ids = {row[0] for row in archive_db.execute("SELECT sha256 FROM objects")}
             if any(row[0] not in object_ids for row in db.execute("SELECT object_sha256 FROM assertions")):
                 failures.append({"type": "assertion_object_missing"})
-            if db.execute("SELECT count(*) FROM assertions WHERE record_id IS NOT NULL AND record_id NOT IN (SELECT record_id FROM records)").fetchone()[0]:
+            has_redump = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='redump_discs'").fetchone()
+            redump_discs = {row[0] for row in db.execute("SELECT disc_id FROM redump_discs")} if has_redump else set()
+            if any(row[0] not in redump_discs and row[0] not in
+                   {record[0] for record in db.execute("SELECT record_id FROM records")}
+                   for row in db.execute("SELECT record_id FROM assertions WHERE record_id IS NOT NULL")):
                 failures.append({"type": "assertion_record_missing"})
             for dataset_id, expected in db.execute("SELECT dataset_id,record_count FROM datasets"):
+                if db.execute("SELECT authority_id FROM datasets WHERE dataset_id=?", (dataset_id,)).fetchone()[0] == "REDUMP":
+                    continue
                 actual = db.execute("SELECT count(*) FROM records WHERE dataset_id=?", (dataset_id,)).fetchone()[0]
                 if actual != expected:
                     failures.append({"type": "record_count_mismatch", "dataset_id": dataset_id,
                                      "expected": expected, "actual": actual})
+        if any(row[0] == "REDUMP" for row in db.execute("SELECT authority_id FROM datasets")):
+            from .redump import RedumpAuthority
+            redump_result = RedumpAuthority(self.archive).verify()
+            failures.extend(redump_result["failures"])
         return {"outcome": "PASS" if not failures else "FAIL", "failures": failures}

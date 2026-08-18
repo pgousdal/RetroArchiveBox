@@ -188,3 +188,68 @@ qualification root was `NO_MATCH` for the preserved ZIP object itself. No
 legally suitable matching content object was available, so real content
 `EXACT_MATCH` is explicitly **NOT QUALIFIED**. Synthetic exact, rights,
 ambiguity, conflict, and historical-release tests remain required and pass.
+
+## Redump optical authority (M4.2)
+
+TOSEC and Redump share the generic authority dataset, preservation, assertion,
+verification, and rebuild boundary, but their record models remain distinct.
+TOSEC records are flat file/hash records. Redump records are physical-disc
+descriptions assembled from official Redump DAT metadata and official CUE
+layout artifacts:
+
+```text
+Redump dataset
+  disc: canonical title/system/category
+    session: session number
+      track: number, data/audio type, mode, sector size/count,
+             INDEX/PREGAP/POSTGAP, file name, CRC32/MD5/SHA-1
+```
+
+`redump_discs`, `redump_files`, `redump_tracks`, and `redump_signatures` are
+disposable authority tables in `authority.sqlite3`. CUE/BIN, CCD/IMG/SUB, CHD,
+ISO data-track extractions, and future physical observations can be represented
+as optical representations without claiming byte equivalence. M4.2 does not
+implement ripping or conversion.
+
+The Redump adapter selects candidates through indexed track-count/layout
+signatures and then compares ordered sessions/tracks, type/mode, sector
+geometry, LBA/index data, size, and supplied hashes. Full-disc `EXACT_MATCH`
+requires all observed tracks to correspond structurally and have sufficient
+hash evidence. Partial representations return `NOT_APPLICABLE`; same-layout
+hash or structural disagreement returns `CONFLICT`; multiple valid records
+remain `AMBIGUOUS`. Title, filename, volume label, or one matching track is
+never sufficient.
+
+### Bounded real Redump qualification
+
+The official Redump project endpoints were used, not a mirror or content set:
+`http://redump.org/datfile/acd/` and `http://redump.org/cues/acd/`. The selected
+release is `Commodore - Amiga CD - Datfile (596) (2026-06-02 00-27-14).zip`
+plus the matching `Commodore - Amiga CD - Cuesheets (596) (2026-06-02 00-27-14).zip`.
+The DAT artifact is 109,464 bytes and the CUE artifact is 161,358 bytes; both
+were preserved as separate M1 objects. Their SHA-256 values are
+`8361cf99242082adc1819e27ba36696f2ebf934124d3aafd8b759675d2f00442` and
+`4969e78c91f0386995fbc788566f20668c5c2e0f742280e1c6a23c1b41115234`.
+The DAT BLAKE3/SHA-1/MD5/CRC32 values are
+`bbcf7b90d91ec6362a50265b2f1d45a1c1aaa86c0bb4cb310337b3f4ef27dfd3`,
+`57e17d6fcb0e9e55192b3dbcc9523906e7a6fc82`, `1554b3cec548e10e11b3c9514f46d4ca`,
+and `07293b0b`; the CUE values are
+`7c619b9a9842e9d04c157d441332d950cf1519d2c86318b2caa7b5bfecc849d4`,
+`276cd8c89d747f0a6b516ac72d8be64a9e8716fc`, `bb4bd2441f234a049e223f5ee04ff624`,
+and `af129d60`.
+
+The real import produced 596 discs and 942 tracks, all with CRC32, MD5, and
+SHA-1. It observed 599 data tracks, 343 audio tracks, 593 MODE1/2352 tracks,
+and 6 MODE2/2352 tracks. Sixty-one discs were multi-track and three used more
+than one session. All discs had matching official CUE members. Pregap/postgap
+was absent from this bounded Amiga subset, while INDEX 01 and multi-session
+layout were present. The Redump platform name `Commodore Amiga CD` maps once,
+conservatively, to RAB `amiga`; no architecture claim is inferred.
+
+`authority verify` passed. Deleting `authority.sqlite3` and rebuilding from
+the two preserved source objects reconstructed 596 discs and 942 tracks with
+semantic equivalence. Existing object masters and sidecars remained unchanged.
+No copyrighted disc image was downloaded, so a real legal disc
+`EXACT_MATCH` is **NOT QUALIFIED**. Synthetic single-track, mixed-mode,
+partial, conflict, ordering, rights, API, and rebuild tests remain
+network-independent.

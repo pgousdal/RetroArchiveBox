@@ -14,6 +14,7 @@ from .store import Archive
 from .catalogue import Catalogue
 from .api import run_server
 from .authority import Authority
+from .redump import RedumpAuthority
 
 
 def parser() -> argparse.ArgumentParser:
@@ -108,6 +109,18 @@ def parser() -> argparse.ArgumentParser:
     authority_match.add_argument("--dataset")
     authority_assertions = authority_sub.add_parser("assertions")
     authority_assertions.add_argument("object")
+    redump = authority_sub.add_parser("redump")
+    redump_sub = redump.add_subparsers(dest="redump_command", required=True)
+    redump_import = redump_sub.add_parser("import")
+    redump_import.add_argument("dat", type=Path)
+    redump_import.add_argument("cues", type=Path)
+    redump_import.add_argument("--release", required=True)
+    redump_import.add_argument("--dat-source", required=True)
+    redump_import.add_argument("--cues-source", required=True)
+    redump_disc = redump_sub.add_parser("disc")
+    redump_disc.add_argument("disc_id")
+    redump_tracks = redump_sub.add_parser("tracks")
+    redump_tracks.add_argument("disc_id")
     api = sub.add_parser("api", help="run the read-only catalogue API")
     api.add_argument("--host", default="127.0.0.1")
     api.add_argument("--port", type=int, default=8000)
@@ -186,6 +199,15 @@ def run(args: argparse.Namespace) -> dict | list:
         return catalogue.verify()
     if args.command == "authority":
         authority = Authority(archive)
+        if args.authority_command == "redump":
+            redump_authority = RedumpAuthority(archive)
+            if args.redump_command == "import":
+                return redump_authority.import_dataset(
+                    args.dat, args.cues, release=args.release, dat_source=args.dat_source,
+                    cues_source=args.cues_source,
+                )
+            disc = redump_authority.show_disc(args.disc_id)
+            return disc if args.redump_command == "disc" else disc["tracks"]
         if args.authority_command == "list":
             return authority.list()
         if args.authority_command == "show":
