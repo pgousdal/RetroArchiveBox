@@ -117,3 +117,12 @@ def test_actual_http_runtime_and_streaming_download(tmp_path):
             urlopen(base + "/api/v1/objects/not-a-hash/download")
     finally:
         server.shutdown(); server.server_close(); thread.join(timeout=2)
+
+
+def test_read_only_download_fixity_does_not_append_event(tmp_path):
+    archive = _archive(tmp_path); catalogue = Catalogue(archive); catalogue.rebuild()
+    package = catalogue.show_package("aminet:comm/foo")
+    before = sorted((archive.object_dir(package["payload_object"].split(":", 1)[1]) / "events").glob("*.json"))
+    CatalogueAPI(catalogue).download_object(package["payload_object"])
+    after = sorted((archive.object_dir(package["payload_object"].split(":", 1)[1]) / "events").glob("*.json"))
+    assert after == before

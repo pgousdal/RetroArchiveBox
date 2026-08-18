@@ -235,7 +235,7 @@ class Archive:
             ).fetchall()
         return [{**dict(row), "object_id": f"sha256:{row['sha256']}"} for row in rows]
 
-    def verify(self, identifier: str) -> dict:
+    def verify(self, identifier: str, *, record_event: bool = True) -> dict:
         sha = self.resolve(identifier)
         expected = self.show(sha)
         master = self.object_dir(sha) / "master"
@@ -244,7 +244,8 @@ class Archive:
             actual[key] == expected[key] for key in ("sha256", "blake3", "sha1", "md5", "crc32", "size")
         )
         detail = {"expected_sha256": sha, "actual": actual}
-        self.append_event(sha, "FIXITY_CHECK", "PASS" if passed else "FAIL", detail)
+        if record_event:
+            self.append_event(sha, "FIXITY_CHECK", "PASS" if passed else "FAIL", detail)
         if not passed:
             raise IntegrityError(f"fixity failure for sha256:{sha}")
         return {"object_id": f"sha256:{sha}", "outcome": "PASS", **actual}

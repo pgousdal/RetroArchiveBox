@@ -30,6 +30,20 @@ future public redistribution: only REDISTRIBUTABLE occurrences may be served
 in a public mode; PRIVATE_LICENSED, RESTRICTED, and UNKNOWN remain blocked.
 Range requests are bounded to the object and streamed in chunks.
 
+## Production exposure qualification
+
+The Debian 13 qualification appliance proved first/second Ansible runs of
+14/0 changes, the `rab` service identity, effective systemd hardening, and a
+loopback-only backend listener. The optional LAN profile installs nginx only
+when `rab_api_lan_enabled` is explicitly true, requires an external htpasswd
+file, proxies only `/api/` to `127.0.0.1:8000`, and returns 404 elsewhere.
+Unauthenticated requests receive 401; authenticated requests can use the same
+catalogue and streaming download service. Disabling the profile removes the
+proxy configuration and stops nginx while the loopback API remains available.
+The qualification used a trusted isolated test network; hostile-network LAN
+use requires operator-supplied TLS at the reverse proxy. Authentication never
+implies redistribution rights.
+
 ```text
 source occurrence -> verified staging copy -> immutable SHA-256 object
                                              | manifest + occurrences + events

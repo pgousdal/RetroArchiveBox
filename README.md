@@ -45,6 +45,18 @@ status`, `rab catalogue verify`, structured `rab search`, and `rab show ...
 Format identification and historical-text extraction are derived metadata only.
 M3 does not claim museum-grade status.
 
+M3.2 production qualification was performed on the disposable Debian 13
+`ubb-debian13-qualification` VM (x86_64, kernel 6.12). Ansible completed with
+14 changes on the first final run and 0 changes on the identical second run.
+The API ran as `rab`, bound to `127.0.0.1:8000`, and its optional LAN profile
+was separately qualified through an authenticated nginx proxy. The proxy is
+opt-in, requires an operator-created htpasswd file outside Git, and does not
+change RAB rights policy. The default profile never installs or starts LAN
+exposure. The API download boundary is read-only and streams verified masters;
+it never accepts server filesystem paths. LAN TLS certificates remain an
+operator/reverse-proxy responsibility; Basic Auth qualification was restricted
+to the disposable trusted test network.
+
 The catalogue schema currently migrates v1 to v2 transactionally (v2 records
 format evidence). A corrupt or missing catalogue is disposable and can be
 recreated with `rab catalogue rebuild`; unsupported future schemas are refused.

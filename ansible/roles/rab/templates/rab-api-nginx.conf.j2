@@ -1,0 +1,20 @@
+# Explicit opt-in LAN profile. Credentials are operator-managed outside Git.
+server {
+    listen {{ rab_api_lan_bind }};
+    server_name _;
+
+    location /api/ {
+        auth_basic "{{ rab_api_lan_realm }}";
+        auth_basic_user_file {{ rab_api_lan_htpasswd_file }};
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Connection "";
+        proxy_request_buffering off;
+        proxy_buffering off;
+    }
+
+    location / {
+        return 404;
+    }
+}

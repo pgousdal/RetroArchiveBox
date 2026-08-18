@@ -47,9 +47,33 @@ future work. M3 is catalogue-complete for the current scope, not museum-grade.
 The v1→v2 catalogue migration, corrupt-database recovery, read-only API
 runtime validation, stable-ID streaming downloads, range handling, and
 rights-aware export boundary are implemented. The API remains bound to
-localhost and disabled by default in Debian provisioning. A clean Debian VM
-qualification and LAN/reverse-proxy authentication are not available in this
-environment and remain NOT QUALIFIED; no museum-grade claim is made.
+localhost and disabled by default in Debian provisioning. Clean Debian 13
+qualification and the opt-in authenticated nginx boundary were completed on
+the disposable `ubb-debian13-qualification` VM; hostile-network TLS remains an
+operator reverse-proxy responsibility. No museum-grade claim is made.
+
+## M3.2 production closure evidence
+
+The final Debian 13 run provisioned with 14 changes and the identical second
+run with 0 changes. The `rab-api.service` process ran as `rab` with
+`NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=strict`, `ProtectHome`,
+`ReadOnlyPaths`, and `UMask=0077`. The actual listener was
+`127.0.0.1:8000`; source workers and API were not enabled by default. A tiny
+payload/README package rebuilt to schema 2, verified successfully, searched
+through FTS, and was served byte-identically, including HTTP 206 ranges. A
+corrupt disposable catalogue was rebuilt and remained API-usable. Hashes of
+masters, manifests, occurrence/event sidecars, and package metadata were
+identical before and after the workflow.
+
+The optional LAN profile is explicit (`rab_api_lan_enabled=true` plus
+`rab_api_enabled=true`), installs nginx, requires an external hashed htpasswd
+file, and proxies only `/api/` to the loopback backend. Unauthenticated access
+returned 401, authenticated status/search/package/download access succeeded,
+and payload/README bytes and ranges matched. Disabling the profile removed the
+LAN listener while local API access remained healthy. Qualification used a
+trusted isolated network without TLS; real hostile-network deployment must
+place operator-supplied TLS at the reverse proxy. Authentication does not
+grant redistribution rights.
 
 ## M2 qualification status
 

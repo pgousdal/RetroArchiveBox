@@ -9,3 +9,8 @@
     state: restarted
     daemon_reload: true
 
+- name: Reload RAB LAN proxy
+  ansible.builtin.systemd_service:
+    name: nginx
+    state: reloaded
+  when: rab_api_lan_enabled

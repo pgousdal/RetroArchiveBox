@@ -79,7 +79,8 @@ class CatalogueAPI:
         rights = {x["rights"] for x in row.get("occurrences", [])}
         if public and (not rights or rights - {"REDISTRIBUTABLE"}):
             raise PolicyError("object is not authorized for public redistribution")
-        self.catalogue.archive.verify(sha)
+        # API workers are read-only; fixity checks must not append events.
+        self.catalogue.archive.verify(sha, record_event=False)
         master = self.catalogue.archive.object_dir(sha) / "master"
         if not master.is_file() or master.is_symlink():
             raise IntegrityError("preservation master is unavailable")

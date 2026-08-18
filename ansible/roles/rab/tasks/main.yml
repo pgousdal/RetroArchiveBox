@@ -32,11 +32,45 @@
     group: "{{ rab_group }}"
     mode: "0750"
 
-- name: Install RAB into isolated virtual environment
-  ansible.builtin.pip:
-    name: "{{ rab_source_dir }}"
-    virtualenv: /opt/rab/venv
-    virtualenv_command: /usr/bin/python3 -m venv
+- name: Create isolated RAB virtual environment
+  ansible.builtin.command:
+    cmd: /usr/bin/python3 -m venv /opt/rab/venv
+    creates: /opt/rab/venv/bin/python
+
+- name: Create deployed RAB source directory
+  ansible.builtin.file:
+    path: "{{ rab_deploy_dir }}"
+    state: directory
+    owner: root
+    group: "{{ rab_group }}"
+    mode: "0750"
+
+- name: Copy RAB source to the Debian appliance
+  ansible.builtin.copy:
+    src: "{{ rab_source_dir }}/"
+    dest: "{{ rab_deploy_dir }}/"
+    owner: root
+    group: "{{ rab_group }}"
+    directory_mode: "0750"
+
+- name: Fingerprint deployed RAB source
+  ansible.builtin.stat:
+    path: "{{ rab_deploy_dir }}/pyproject.toml"
+    checksum_algorithm: sha256
+  register: rab_source_manifest
+
+- name: Install RAB into isolated virtual environment once per deployment
+  ansible.builtin.command:
+    cmd: /opt/rab/venv/bin/pip install "{{ rab_deploy_dir }}"
+    creates: "/opt/rab/.rab-installed-{{ rab_source_manifest.stat.checksum }}"
+  notify: Restart RAB audit timer
+
+- name: Record RAB installation marker
+  ansible.builtin.copy:
+    dest: "/opt/rab/.rab-installed-{{ rab_source_manifest.stat.checksum }}"
+    content: "installed\n"
+    force: false
+    mode: "0644"
   notify: Restart RAB audit timer
 
 - name: Create source staging directory
@@ -98,3 +132,69 @@
     enabled: true
     state: started
     daemon_reload: true
+
+- name: Install optional authenticated LAN reverse proxy
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+  when: rab_api_lan_enabled
+
+- name: Check optional LAN credentials file
+  ansible.builtin.stat:
+    path: "{{ rab_api_lan_htpasswd_file }}"
+  register: rab_lan_credentials
+  when: rab_api_lan_enabled
+
+- name: Refuse LAN profile without operator-supplied credentials
+  ansible.builtin.assert:
+    that: rab_lan_credentials.stat.exists and rab_lan_credentials.stat.isreg
+    fail_msg: "rab_api_lan_enabled requires an operator-created htpasswd file outside Git"
+  when: rab_api_lan_enabled
+
+- name: Require the loopback RAB backend for LAN proxying
+  ansible.builtin.assert:
+    that: rab_api_enabled | bool
+    fail_msg: "rab_api_lan_enabled requires rab_api_enabled=true for the loopback backend"
+  when: rab_api_lan_enabled
+
+- name: Grant nginx read access to operator-supplied credential hash
+  ansible.builtin.file:
+    path: "{{ rab_api_lan_htpasswd_file }}"
+    owner: root
+    group: www-data
+    mode: "0640"
+  when: rab_api_lan_enabled
+
+- name: Install opt-in LAN API proxy configuration
+  ansible.builtin.template:
+    src: rab-api-nginx.conf.j2
+    dest: /etc/nginx/conf.d/rab-api.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: rab_api_lan_enabled
+  notify: Reload RAB LAN proxy
+
+- name: Remove disabled LAN API proxy configuration
+  ansible.builtin.file:
+    path: /etc/nginx/conf.d/rab-api.conf
+    state: absent
+  when: not rab_api_lan_enabled
+  notify: Reload RAB LAN proxy
+
+- name: Validate optional LAN proxy configuration
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  when: rab_api_lan_enabled
+
+- name: Gather service facts for optional LAN proxy policy
+  ansible.builtin.service_facts:
+
+- name: Apply optional LAN proxy service policy
+  ansible.builtin.systemd_service:
+    name: nginx
+    enabled: "{{ rab_api_lan_enabled }}"
+    state: "{{ 'started' if rab_api_lan_enabled else 'stopped' }}"
+    daemon_reload: true
+  when: rab_api_lan_enabled or 'nginx.service' in ansible_facts.services
