@@ -72,3 +72,14 @@ to reconstruct the principal preservation catalogue.
 
 See [docs/architecture.md](docs/architecture.md) and
 [docs/roadmap.md](docs/roadmap.md) for boundaries and milestone status.
+
+## M4.1 authority assertions
+
+`rab authority import FILE.dat` preserves the original TOSEC DAT through M1,
+records immutable dataset/release provenance, and builds a disposable indexed
+authority catalogue. `rab authority rebuild` reconstructs it from preserved
+authority objects and metadata; assertions are not an `object.verified`
+boolean. `EXACT_MATCH` requires hash and size evidence; collisions and
+conflicts remain visible. TOSEC recognition is independent of source provenance
+and rights. A TOSEC-organized Archive.org collection is an acquisition source,
+not authority data. M4.1 does not claim museum-grade status.

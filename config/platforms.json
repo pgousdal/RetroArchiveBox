@@ -1,0 +1,7 @@
+{
+  "schema": "rab-platform-scope-v1",
+  "note": "Broader scope than current authority coverage; mappings require evidence.",
+  "amiga": {"ecosystem": "Amiga", "operating_systems": ["Classic Amiga", "AmigaOS 4", "MorphOS", "AROS"], "architectures": ["m68k", "PPC", "x86", "x86-64", "other"], "hardware": ["OCS", "ECS", "AGA", "RTG", "PPC accelerator", "compatible hardware"]},
+  "neo-retro": ["Commander X16", "MEGA65", "ZX Spectrum Next", "Agon", "Foenix F256", "Olimex Neo6502", "Picocomputer 6502", "X65"],
+  "fpga-recreation": ["MiSTer", "MiST", "Minimig", "Jotego/JTFRAME/JTCORES", "Analogue Pocket/openFPGA", "MiSTeX", "FPGA Arcade/Replay"]
+}

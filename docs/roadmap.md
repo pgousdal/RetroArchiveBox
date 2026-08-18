@@ -31,6 +31,29 @@ than inferred commit history.
 
 No release should call itself museum-grade until these are demonstrated.
 
+## M4 external authority programme
+
+M4.1 adds the generic, rebuildable authority dataset model and the first TOSEC
+adapter. Official TOSEC DAT/archive bytes cross M1 before parsing. Dataset and
+release identity are immutable; parsed records, indexes, and assertions are
+disposable. Assertions retain release, canonical name, result, matching method,
+hash evidence, and provenance. `EXACT_MATCH` is not a source or rights claim,
+and a filename alone cannot produce it. Historical releases are never
+overwritten.
+
+M4.2 is reserved for Redump and M4.3 for additional authorities. Historical
+Amiga FDB datasets remain historical catalogues/manifests. Archive.org direct
+item/collection archaeology, explicit collection authorization, official
+torrent transport selection, and TOSEC content bootstrapping remain future M7
+requirements. Expanded Amiga, neo-retro, and FPGA/recreation scope is recorded
+in `config/platforms.json`; M4.1 does not claim those ecosystems are covered by
+TOSEC.
+
+M4.1 implementation status: the generic framework and deterministic synthetic
+qualification are implemented. Bounded qualification against a real official
+TOSEC release was not performed in this environment, so M4.1 remains
+**INCOMPLETE / NOT QUALIFIED** and no museum-grade claim is made.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

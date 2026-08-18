@@ -10,6 +10,7 @@ from .errors import IntegrityError, RabError
 from .formats import identify_format
 from .store import Archive, now
 from .textmeta import extract_text
+from .authority import Authority
 
 
 class Catalogue:
@@ -446,7 +447,8 @@ class Catalogue:
 
     def search(self, query: str, *, platform: str | None = None,
                source: str | None = None, format_id: str | None = None,
-               rights: str | None = None, limit: int = 25, offset: int = 0) -> dict:
+               rights: str | None = None, authority: str | None = None,
+               authority_match: bool = False, limit: int = 25, offset: int = 0) -> dict:
         self.initialize()
         limit = max(1, min(limit, 100)); offset = max(0, offset)
         terms = [term for term in query.split() if term]
@@ -472,6 +474,23 @@ class Catalogue:
             if not had_packages:
                 for sha in sorted(set(object_ids))[offset:offset + limit]:
                     results.append(self.show_object(sha))
+            if authority or authority_match:
+                authority_db = Authority(self.archive)
+                authority_db.initialize()
+                allowed = set()
+                with sqlite3.connect(authority_db.db_path) as authority_conn:
+                    params = []
+                    where = "a.result='EXACT_MATCH'" if authority_match else "1=1"
+                    if authority:
+                        where += " AND d.authority_id=?"; params.append(authority.upper())
+                    rows = authority_conn.execute(
+                        f"SELECT a.object_sha256 FROM assertions a JOIN datasets d ON d.dataset_id=a.dataset_id WHERE {where}", params).fetchall()
+                    allowed = {row[0] for row in rows}
+                results = [row for row in results if row.get("sha256") in allowed or
+                           any(x.get("payload_sha256") in allowed or x.get("readme_sha256") in allowed
+                               for x in row.get("generations", []))]
+                return {"results": results[offset:offset + limit], "limit": limit, "offset": offset,
+                        "returned": len(results[offset:offset + limit])}
             return {"results": results, "limit": limit, "offset": offset, "returned": len(results)}
 
     def show_object(self, sha256: str) -> dict:
@@ -487,6 +506,7 @@ class Catalogue:
             result["metadata"] = [dict(x) for x in db.execute("SELECT * FROM cat_metadata WHERE entity_id=?", (sha256,))]
             result["events"] = [dict(x) for x in db.execute("SELECT * FROM cat_events WHERE entity_id=? ORDER BY occurred_at", (sha256,))]
             result["object_id"] = f"sha256:{sha256}"
+            result["authority_assertions"] = Authority(self.archive).assertions(sha256)
             return result
 
     def show_package(self, package_id: str) -> dict:

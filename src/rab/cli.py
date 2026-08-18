@@ -13,6 +13,7 @@ from .sources import SourceRegistry
 from .store import Archive
 from .catalogue import Catalogue
 from .api import run_server
+from .authority import Authority
 
 
 def parser() -> argparse.ArgumentParser:
@@ -37,6 +38,8 @@ def parser() -> argparse.ArgumentParser:
     search.add_argument("--source")
     search.add_argument("--format", dest="format_id")
     search.add_argument("--rights")
+    search.add_argument("--authority")
+    search.add_argument("--tosec-match", action="store_true")
     search.add_argument("--limit", type=int, default=25)
     search.add_argument("--offset", type=int, default=0)
     search.add_argument("--json", action="store_true")
@@ -86,6 +89,22 @@ def parser() -> argparse.ArgumentParser:
     catalogue_sub.add_parser("rebuild")
     catalogue_sub.add_parser("status")
     catalogue_sub.add_parser("verify")
+    authority = sub.add_parser("authority", help="inspect external authority datasets and assertions")
+    authority_sub = authority.add_subparsers(dest="authority_command", required=True)
+    authority_sub.add_parser("list")
+    authority_show = authority_sub.add_parser("show")
+    authority_show.add_argument("dataset")
+    authority_import = authority_sub.add_parser("import")
+    authority_import.add_argument("path", type=Path)
+    authority_import.add_argument("--release")
+    authority_import.add_argument("--source")
+    authority_sub.add_parser("rebuild")
+    authority_sub.add_parser("verify")
+    authority_match = authority_sub.add_parser("match")
+    authority_match.add_argument("object")
+    authority_match.add_argument("--dataset")
+    authority_assertions = authority_sub.add_parser("assertions")
+    authority_assertions.add_argument("object")
     api = sub.add_parser("api", help="run the read-only catalogue API")
     api.add_argument("--host", default="127.0.0.1")
     api.add_argument("--port", type=int, default=8000)
@@ -104,6 +123,7 @@ def run(args: argparse.Namespace) -> dict | list:
         catalogue = Catalogue(archive); catalogue.rebuild()
         return catalogue.search(args.query, platform=args.platform, source=args.source,
                                 format_id=args.format_id, rights=args.rights,
+                                authority=args.authority, authority_match=args.tosec_match,
                                 limit=args.limit, offset=args.offset)
     if args.command == "show":
         catalogue = Catalogue(archive); catalogue.rebuild()
@@ -161,6 +181,24 @@ def run(args: argparse.Namespace) -> dict | list:
         if args.catalogue_command == "status":
             return catalogue.status()
         return catalogue.verify()
+    if args.command == "authority":
+        authority = Authority(archive)
+        if args.authority_command == "list":
+            return authority.list()
+        if args.authority_command == "show":
+            rows = [x for x in authority.list() if x["dataset_id"].startswith(args.dataset) or x["release_identity"] == args.dataset]
+            if not rows:
+                raise RabError(f"authority dataset not found: {args.dataset}")
+            return rows[0]
+        if args.authority_command == "import":
+            return authority.import_tosec(args.path, release=args.release, source=args.source)
+        if args.authority_command == "rebuild":
+            return authority.rebuild()
+        if args.authority_command == "verify":
+            return authority.verify()
+        if args.authority_command == "match":
+            return authority.match(args.object, args.dataset)
+        return authority.assertions(args.object)
     if args.command == "api":
         run_server(archive, registry, args.host, args.port)
         return {"outcome": "STOPPED"}

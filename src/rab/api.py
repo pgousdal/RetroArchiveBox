@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from .catalogue import Catalogue
 from .errors import RabError
 from .errors import IntegrityError, PolicyError
+from .authority import Authority
 
 
 class CatalogueAPI:
@@ -37,6 +38,13 @@ class CatalogueAPI:
             return 200, status
         if route == "/api/v1/sources":
             return 200, [x.public() for x in self.registry.load().values()] if self.registry else []
+        if route == "/api/v1/authorities":
+            return 200, Authority(self.catalogue.archive).list()
+        if route.startswith("/api/v1/authorities/"):
+            dataset = unquote(route.removeprefix("/api/v1/authorities/"))
+            rows = [x for x in Authority(self.catalogue.archive).list()
+                    if x["dataset_id"].startswith(dataset) or x["release_identity"] == dataset]
+            return (200, rows[0]) if rows else (404, {"error": "not_found"})
         if route == "/api/v1/search":
             q = query.get("q", [""])[0]
             try:
@@ -51,6 +59,9 @@ class CatalogueAPI:
         if m:
             result = self.catalogue.show_object("sha256:" + m.group(1))
             return (200, result) if result else (404, {"error": "not_found"})
+        m = re.fullmatch(r"/api/v1/objects/(?:sha256:)?([0-9a-f]{64})/assertions", route)
+        if m:
+            return 200, Authority(self.catalogue.archive).assertions(m.group(1))
         m = re.fullmatch(r"/api/v1/objects/(?:sha256:)?([0-9a-f]{64})/download", route)
         if m:
             return 200, {"download": self._public_download(self.download_object("sha256:" + m.group(1), public=False))}

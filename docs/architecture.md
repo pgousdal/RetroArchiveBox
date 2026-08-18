@@ -123,3 +123,27 @@ Provisioning installs Debian rsync and a hardened `rab-source@.service` template
 but deliberately installs no source timer and starts no mirror. Scheduling is
 source-specific operator policy; the shipped Aminet definition suggests weekly
 operation, remains disabled, and contains conservative concurrency/retry hints.
+
+## Generic external authorities (M4.1)
+
+Official TOSEC DAT/archive bytes first cross the M1 boundary. Immutable dataset
+metadata under `authority-metadata/datasets` records release identity, source
+object, hashes, parser version, rights, and import status. Parsed records, hash
+indexes, and assertions live in disposable `authority.sqlite3`; deleting it and
+running `rab authority rebuild` reparses preserved source objects.
+
+Assertions retain authority, release, object identity, result, matching method,
+matched hashes, canonical name, and evidence. Matching uses SHA-1+size, then
+MD5+size, then CRC32+size. Filename matching is never exact identity; ambiguous
+records and stronger-hash conflicts remain visible. TOSEC XML DAT headers and
+`game`/`rom` records are supported, including canonical name, system/category,
+ROM name, size, CRC32, MD5, SHA-1, status, and extra attributes. Unsafe XML
+declarations and malformed input fail in a controlled way after preservation.
+
+The generic authority type leaves room for Redump, SPS, No-Intro, and MAME.
+Amiga FDB files are historical catalogues/manifests, not verification
+authorities. TOSEC assertions never change content rights. `config/platforms.json`
+records the broader Amiga, neo-retro, and FPGA/recreation scope without forcing
+mappings. Archive.org direct-item and explicitly authorized collection
+archaeology, torrent transport selection, and mixed-mode track preservation
+remain future M7 requirements.
