@@ -65,6 +65,22 @@
     mode: "0644"
   notify: Reload systemd
 
+- name: Install read-only catalogue API service (disabled by default)
+  ansible.builtin.template:
+    src: rab-api.service.j2
+    dest: /etc/systemd/system/rab-api.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Apply catalogue API service policy
+  ansible.builtin.systemd_service:
+    name: rab-api.service
+    enabled: "{{ rab_api_enabled }}"
+    state: "{{ 'started' if rab_api_enabled else 'stopped' }}"
+    daemon_reload: true
+
 - name: Install fixity audit timer
   ansible.builtin.copy:
     src: rab-audit.timer

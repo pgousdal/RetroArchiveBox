@@ -2,6 +2,22 @@
 
 RAB separates the preservation plane from the convenience and analysis plane.
 
+## Catalogue and API (M3)
+
+`rab catalogue rebuild` reconstructs SQLite tables and an FTS5 index from
+content-addressed manifests plus immutable occurrence, source-event, and
+package-generation sidecars. SQLite supplies transactions, foreign keys,
+migrations, FTS5, and concurrent reads without another daemon. No preservation
+master is stored in the database. `status` reports indexed counts and `verify`
+reports dangling or missing references; neither repairs preservation data.
+
+The catalogue models objects, occurrences, packages, immutable generations,
+generic relationships, rights, events, and many-to-many platform evidence.
+Format identification and defensive text decoding are derived records; original
+bytes remain authoritative. The read-only localhost API provides bounded
+status/search/source/object/package lookups and no arbitrary file or write API.
+The database can always be removed and rebuilt.
+
 ```text
 source occurrence -> verified staging copy -> immutable SHA-256 object
                                              | manifest + occurrences + events

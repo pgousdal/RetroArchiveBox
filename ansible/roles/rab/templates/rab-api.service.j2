@@ -1,0 +1,19 @@
+[Unit]
+Description=Retro Archive Box read-only catalogue API
+After=local-fs.target
+
+[Service]
+Type=simple
+User={{ rab_user }}
+Group={{ rab_group }}
+ExecStart=/opt/rab/venv/bin/rab --root {{ rab_root }} --sources {{ rab_sources_dir }} api --host {{ rab_api_host }} --port {{ rab_api_port }}
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths={{ rab_root }}
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

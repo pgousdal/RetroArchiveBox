@@ -11,6 +11,8 @@ from .model import IngestRequest, Rights
 from .acquisition import Acquisition, preserve_torrent
 from .sources import SourceRegistry
 from .store import Archive
+from .catalogue import Catalogue
+from .api import run_server
 
 
 def parser() -> argparse.ArgumentParser:
@@ -31,8 +33,16 @@ def parser() -> argparse.ArgumentParser:
 
     search = sub.add_parser("search")
     search.add_argument("query")
+    search.add_argument("--platform")
+    search.add_argument("--source")
+    search.add_argument("--format", dest="format_id")
+    search.add_argument("--rights")
+    search.add_argument("--limit", type=int, default=25)
+    search.add_argument("--offset", type=int, default=0)
+    search.add_argument("--json", action="store_true")
     show = sub.add_parser("show")
     show.add_argument("object")
+    show.add_argument("--json", action="store_true")
     verify = sub.add_parser("verify")
     verify.add_argument("object")
     export = sub.add_parser("export")
@@ -71,6 +81,14 @@ def parser() -> argparse.ArgumentParser:
     get.add_argument("package")
     get.add_argument("--output", type=Path, required=True)
     get.add_argument("--with-readme", action="store_true")
+    catalogue = sub.add_parser("catalogue")
+    catalogue_sub = catalogue.add_subparsers(dest="catalogue_command", required=True)
+    catalogue_sub.add_parser("rebuild")
+    catalogue_sub.add_parser("status")
+    catalogue_sub.add_parser("verify")
+    api = sub.add_parser("api", help="run the read-only catalogue API")
+    api.add_argument("--host", default="127.0.0.1")
+    api.add_argument("--port", type=int, default=8000)
     return p
 
 
@@ -83,13 +101,15 @@ def run(args: argparse.Namespace) -> dict | list:
             args.media_type, args.title, args.derived_from,
         ))
     if args.command == "search":
-        objects = archive.search(args.query)
-        packages = Acquisition(archive).search_packages(args.query)
-        return {"packages": packages, "objects": objects}
+        catalogue = Catalogue(archive); catalogue.rebuild()
+        return catalogue.search(args.query, platform=args.platform, source=args.source,
+                                format_id=args.format_id, rights=args.rights,
+                                limit=args.limit, offset=args.offset)
     if args.command == "show":
+        catalogue = Catalogue(archive); catalogue.rebuild()
         if ":" in args.object and not args.object.startswith("sha256:"):
-            return Acquisition(archive).show_package(args.object)
-        return archive.show(args.object)
+            return catalogue.show_package(args.object)
+        return catalogue.show_object(args.object)
     if args.command == "verify":
         return archive.verify(args.object)
     if args.command == "export":
@@ -134,6 +154,16 @@ def run(args: argparse.Namespace) -> dict | list:
         return preserve_torrent(acquisition, source, args.path, args.source_path)
     if args.command == "get":
         return Acquisition(archive).get_package(args.package, args.output, args.with_readme)
+    if args.command == "catalogue":
+        catalogue = Catalogue(archive)
+        if args.catalogue_command == "rebuild":
+            return catalogue.rebuild()
+        if args.catalogue_command == "status":
+            return catalogue.status()
+        return catalogue.verify()
+    if args.command == "api":
+        run_server(archive, registry, args.host, args.port)
+        return {"outcome": "STOPPED"}
     raise AssertionError(args.command)
 
 

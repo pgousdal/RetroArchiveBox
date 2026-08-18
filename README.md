@@ -34,6 +34,17 @@ rab get aminet:comm/term/ncomm307 --output ./package --with-readme
 pytest
 ```
 
+## M3 catalogue
+
+`rab catalogue rebuild` derives a typed SQLite catalogue and FTS5 index from
+preservation manifests, occurrence/package sidecars, and event records. The
+catalogue database is disposable: deleting it and rebuilding restores the same
+semantic records without touching preservation masters. Use `rab catalogue
+status`, `rab catalogue verify`, structured `rab search`, and `rab show ...
+--json` for inspection. The read-only API runs on localhost with `rab api`.
+Format identification and historical-text extraction are derived metadata only.
+M3 does not claim museum-grade status.
+
 The database is an index, not the sole metadata store. Each object directory
 contains a canonical manifest and append-only JSON Lines event log sufficient
 to reconstruct the principal preservation catalogue.

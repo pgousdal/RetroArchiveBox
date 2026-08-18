@@ -31,6 +31,17 @@ than inferred commit history.
 
 No release should call itself museum-grade until these are demonstrated.
 
+## M3 catalogue, search & API
+
+M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild
+from preservation metadata, generic relationships and platform evidence,
+format identification, safe historical-text extraction, structured bounded
+search, JSON CLI inspection, and a read-only localhost API. The hard acceptance
+property is semantic equivalence after deleting `catalogue.sqlite3` and running
+`rab catalogue rebuild`; preservation-tree state is unchanged. API download,
+authentication, authority matching, malware assertions, and the Web UI remain
+future work. M3 is catalogue-complete for the current scope, not museum-grade.
+
 ## M2 qualification status
 
 M2.2 includes the generic registry/acquisition boundary, deterministic Aminet

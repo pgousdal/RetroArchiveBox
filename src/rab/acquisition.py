@@ -182,6 +182,7 @@ class Acquisition:
             "bulk_acquisition": source.bulk_acquisition,
             "rights": source.rights_default.value,
             "mirror_authorized": source.mirror_authorized,
+            "platforms": list(source.platforms),
         })
         return result["object_id"]
 
@@ -285,7 +286,8 @@ class Acquisition:
             payload_id = objects.get(stem + ".lha")
             readme_id = objects.get(stem + ".readme")
             metadata = {"source_path": stem, "filename": Path(stem + ".lha").name,
-                        "path": str(Path(stem).parent), "size": None}
+                        "path": str(Path(stem).parent), "size": None,
+                        "platforms": list(source.platforms)}
             if payload_id:
                 payload = self.archive.show(payload_id)
                 metadata["size"] = payload["size"]
@@ -449,7 +451,8 @@ class Acquisition:
             state = (Completeness.ACQUISITION_FAILED if failed else Completeness.COMPLETE if payload and readme
                      else Completeness.PAYLOAD_MISSING if readme else Completeness.README_MISSING)
             metadata = {"source_path": stem, "filename": Path(payload_path).name,
-                        "path": str(Path(stem).parent), "size": files[payload_path].stat().st_size if payload_path in files else None}
+                        "path": str(Path(stem).parent), "size": files[payload_path].stat().st_size if payload_path in files else None,
+                        "platforms": list(source.platforms)}
             if readme and readme_path in files:
                 metadata.update(parse_aminet_readme(files[readme_path].read_bytes()))
             package_id = f"{source.id}:{stem}"

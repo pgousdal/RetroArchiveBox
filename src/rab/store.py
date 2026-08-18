@@ -177,6 +177,7 @@ class Archive:
             "occurrence_id": occurrence_id, "source": request.source,
             "source_path": request.source_path, "acquired_at": acquired,
             "rights": request.rights.value,
+            "source_policy": {"source_id": request.source},
         })
         target.chmod(0o444)
 
