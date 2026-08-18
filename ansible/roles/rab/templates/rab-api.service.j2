@@ -8,6 +8,7 @@ User={{ rab_user }}
 Group={{ rab_group }}
 ExecStart=/opt/rab/venv/bin/rab --root {{ rab_root }} --sources {{ rab_sources_dir }} api --host {{ rab_api_host }} --port {{ rab_api_port }}
 NoNewPrivileges=true
+UMask=0077
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true

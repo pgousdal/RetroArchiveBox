@@ -45,6 +45,15 @@ status`, `rab catalogue verify`, structured `rab search`, and `rab show ...
 Format identification and historical-text extraction are derived metadata only.
 M3 does not claim museum-grade status.
 
+The catalogue schema currently migrates v1 to v2 transactionally (v2 records
+format evidence). A corrupt or missing catalogue is disposable and can be
+recreated with `rab catalogue rebuild`; unsupported future schemas are refused.
+The API service validates an existing catalogue without writing it, binds to
+127.0.0.1 by default, and is disabled by default in Ansible. Its download
+endpoints accept only stable object/package IDs, stream verified masters, and
+allow local operator access while refusing non-redistributable objects for any
+future public-serving mode. The API never accepts filesystem paths.
+
 The database is an index, not the sole metadata store. Each object directory
 contains a canonical manifest and append-only JSON Lines event log sufficient
 to reconstruct the principal preservation catalogue.

@@ -42,6 +42,15 @@ property is semantic equivalence after deleting `catalogue.sqlite3` and running
 authentication, authority matching, malware assertions, and the Web UI remain
 future work. M3 is catalogue-complete for the current scope, not museum-grade.
 
+### M3.1 hardening status
+
+The v1→v2 catalogue migration, corrupt-database recovery, read-only API
+runtime validation, stable-ID streaming downloads, range handling, and
+rights-aware export boundary are implemented. The API remains bound to
+localhost and disabled by default in Debian provisioning. A clean Debian VM
+qualification and LAN/reverse-proxy authentication are not available in this
+environment and remain NOT QUALIFIED; no museum-grade claim is made.
+
 ## M2 qualification status
 
 M2.2 includes the generic registry/acquisition boundary, deterministic Aminet

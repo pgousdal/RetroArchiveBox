@@ -18,6 +18,18 @@ bytes remain authoritative. The read-only localhost API provides bounded
 status/search/source/object/package lookups and no arbitrary file or write API.
 The database can always be removed and rebuilt.
 
+Catalogue schema upgrades are sequential and transactional; the shipped v1 to
+v2 migration adds derived format evidence and leaves preservation records
+untouched. A read-only API process validates rather than migrates the database,
+so catalogue write ownership remains with the CLI/worker. The API is localhost
+only by default and the Ansible unit is disabled unless explicitly enabled.
+Object/package download requests resolve stable catalogue IDs, run fixity and
+rights checks, then stream the preservation master with a sanitized filename.
+No caller-supplied path is accepted. Local operator access is distinct from
+future public redistribution: only REDISTRIBUTABLE occurrences may be served
+in a public mode; PRIVATE_LICENSED, RESTRICTED, and UNKNOWN remain blocked.
+Range requests are bounded to the object and streamed in chunks.
+
 ```text
 source occurrence -> verified staging copy -> immutable SHA-256 object
                                              | manifest + occurrences + events

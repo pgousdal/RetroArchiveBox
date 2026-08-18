@@ -15,7 +15,7 @@ from .textmeta import extract_text
 class Catalogue:
     """Rebuildable catalogue service; preservation sidecars remain authoritative."""
 
-    VERSION = 1
+    VERSION = 2
 
     @staticmethod
     def _platform_id(value) -> str:
@@ -25,6 +25,12 @@ class Catalogue:
         self.archive = archive
 
     def initialize(self) -> None:
+        try:
+            self._initialize()
+        except sqlite3.DatabaseError as exc:
+            raise RabError("catalogue database is invalid; run 'rab catalogue rebuild'") from exc
+
+    def _initialize(self) -> None:
         self.archive.initialize()
         with self.archive.db() as db:
             db.executescript(
@@ -58,7 +64,7 @@ class Catalogue:
                     media_type TEXT NOT NULL, title TEXT, format TEXT NOT NULL,
                     detection_method TEXT NOT NULL, confidence REAL NOT NULL,
                     preservation_state TEXT NOT NULL, derived_from TEXT,
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL, format_evidence TEXT NOT NULL DEFAULT ''
                 );
                 CREATE TABLE IF NOT EXISTS cat_occurrences (
                     id TEXT PRIMARY KEY, sha256 TEXT NOT NULL, source_id TEXT NOT NULL,
@@ -110,8 +116,41 @@ class Catalogue:
             row = db.execute("SELECT version FROM cat_schema LIMIT 1").fetchone()
             if row is None:
                 db.execute("INSERT INTO cat_schema VALUES (?)", (self.VERSION,))
-            elif row[0] != self.VERSION:
-                raise RabError(f"unsupported catalogue schema version: {row[0]}")
+            else:
+                try:
+                    version = int(row[0])
+                except (TypeError, ValueError) as exc:
+                    raise RabError("invalid catalogue schema version") from exc
+                if version > self.VERSION:
+                    raise RabError(f"unsupported future catalogue schema version: {version}")
+                if version < 1:
+                    raise RabError(f"unsupported catalogue schema version: {version}")
+                if version == 1:
+                    # v2 is a real, transactional upgrade of v1.  The column is
+                    # derived evidence and does not alter preservation records.
+                    columns = {x[1] for x in db.execute("PRAGMA table_info(cat_objects)")}
+                    if "format_evidence" not in columns:
+                        db.execute("ALTER TABLE cat_objects ADD COLUMN format_evidence TEXT NOT NULL DEFAULT ''")
+                    db.execute("CREATE INDEX IF NOT EXISTS cat_objects_format ON cat_objects(format)")
+                    db.execute("UPDATE cat_schema SET version=2")
+
+    def validate_readonly(self) -> dict:
+        """Validate an existing catalogue without creating or modifying it."""
+        if not self.archive.db_path.is_file():
+            raise RabError("catalogue database is missing; run 'rab catalogue rebuild'")
+        try:
+            with self.archive.db() as db:
+                version = db.execute("SELECT version FROM cat_schema LIMIT 1").fetchone()
+                if version is None or int(version[0]) != self.VERSION:
+                    raise RabError("catalogue schema requires migration/rebuild")
+                required = {"cat_objects", "cat_occurrences", "cat_packages", "cat_generations", "cat_fts"}
+                present = {x[0] for x in db.execute("SELECT name FROM sqlite_master WHERE type IN ('table','index')")}
+                missing = sorted(required - present)
+                if missing:
+                    raise RabError("catalogue is incomplete; run 'rab catalogue rebuild'")
+                return {"schema": self.VERSION, "available": True}
+        except sqlite3.DatabaseError as exc:
+            raise RabError("catalogue database is invalid; run 'rab catalogue rebuild'") from exc
 
     def _sidecars(self, pattern: str) -> list[Path]:
         return sorted(self.archive.root.glob(pattern))
@@ -243,7 +282,16 @@ class Catalogue:
                         json.dumps(latest.get("metadata", {}), sort_keys=True), latest["generation"], int(present), latest["recorded_at"]))
 
     def rebuild(self) -> dict:
-        self.initialize()
+        try:
+            self.initialize()
+        except RabError as exc:
+            message = str(exc)
+            if "database is invalid" not in message:
+                raise
+            # The SQLite file is disposable derived state.  Remove only this
+            # catalogue file, never preservation directories or sidecars.
+            self.archive.db_path.unlink(missing_ok=True)
+            self.initialize()
         manifests = self._manifests()
         source_events = self._source_events()
         generations = self._generations()
@@ -264,12 +312,12 @@ class Catalogue:
                 prefix = master.open("rb").read(1024 * 1024) if master.is_file() else b""
                 occurrence_names = [x.get("source_path", "") for x in self._occurrences(sha)]
                 identification = identify_format(prefix, name=occurrence_names[0] if occurrence_names else manifest.get("title", ""), media_type=manifest.get("media_type", ""))
-                db.execute("INSERT INTO cat_objects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                db.execute("INSERT INTO cat_objects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                            (sha, manifest["hashes"]["blake3"], manifest["hashes"]["sha1"], manifest["hashes"]["md5"],
                             manifest["hashes"]["crc32"], manifest["size"], manifest.get("media_type", "application/octet-stream"),
                             manifest.get("title"), identification.format_id, identification.method, identification.confidence,
                             manifest["preservation_state"], (manifest.get("derived_from") or "").removeprefix("sha256:") or None,
-                            manifest["created_at"]))
+                            manifest["created_at"], identification.method))
                 for occurrence in self._occurrences(sha):
                     policy = {**occurrence.get("source_policy", {}), **policy_by_occurrence.get(occurrence["occurrence_id"], {})}
                     source_state = "PRESENT"
@@ -341,8 +389,11 @@ class Catalogue:
                     db.execute("INSERT OR IGNORE INTO cat_platforms VALUES (?, ?, ?, ?)", ("PACKAGE", package_id, self._platform_id(platform), "source-metadata"))
         return self.status()
 
-    def status(self) -> dict:
-        self.initialize()
+    def status(self, *, read_only: bool = False) -> dict:
+        if read_only:
+            self.validate_readonly()
+        else:
+            self.initialize()
         with self.archive.db() as db:
             def count(table): return db.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
             return {"schema": db.execute("SELECT version FROM cat_schema LIMIT 1").fetchone()[0],
@@ -399,9 +450,9 @@ class Catalogue:
         self.initialize()
         limit = max(1, min(limit, 100)); offset = max(0, offset)
         terms = [term for term in query.split() if term]
-        match = " AND ".join(f'"{term.replace(chr(34), "")}"' for term in terms) or "*"
+        match = " AND ".join(f'"{term.replace(chr(34), "")}"' for term in terms)
         with self.archive.db() as db:
-            rows = db.execute("SELECT entity_type,entity_id FROM cat_fts WHERE cat_fts MATCH ?", (match,)).fetchall()
+            rows = db.execute("SELECT entity_type,entity_id FROM cat_fts WHERE cat_fts MATCH ?", (match,)).fetchall() if match else []
             package_ids = []
             object_ids = []
             for row in rows:
