@@ -18,6 +18,7 @@ from .store import Archive, now
 RESULTS = {"EXACT_MATCH", "NO_MATCH", "AMBIGUOUS", "CONFLICT", "NOT_APPLICABLE", "ERROR"}
 HASHES = ("sha1", "md5", "crc32")
 HASH_LENGTHS = {"sha1": 40, "md5": 32, "crc32": 8}
+PARSER_VERSION = "rab-tosec-2"
 
 
 @dataclass(frozen=True)
@@ -47,11 +48,11 @@ def _hash(value: str | None, kind: str) -> str | None:
 
 
 def parse_tosec(data: bytes, member: str = "<data>") -> tuple[dict, list[AuthorityRecord]]:
-    """Parse the XML DAT format used by TOSEC; never evaluates entities."""
+    """Parse TOSEC XML; stdlib ElementTree ignores external DTDs, and entities are rejected."""
     if len(data) > 128 * 1024 * 1024:
         raise RabError("TOSEC DAT is too large")
-    if re.search(rb"<!DOCTYPE|<!ENTITY", data[:1024 * 1024], re.I):
-        raise RabError("unsafe XML declarations in TOSEC DAT")
+    if re.search(rb"<!ENTITY", data[:1024 * 1024], re.I):
+        raise RabError("unsafe XML entities in TOSEC DAT")
     try:
         root = ElementTree.fromstring(data)
     except (ElementTree.ParseError, ValueError) as exc:
@@ -59,13 +60,15 @@ def parse_tosec(data: bytes, member: str = "<data>") -> tuple[dict, list[Authori
     header = root.find("header")
     if header is None:
         raise RabError(f"TOSEC DAT has no header: {member}")
-    identity = {key: _text(header, key) for key in ("name", "description", "version", "date", "author", "homepage", "url")}
+    identity = {child.tag: child.text for child in header}
+    dat_name = (identity.get("name") or "").strip()
+    inferred_system = dat_name.split(" - ", 1)[0]
     records: list[AuthorityRecord] = []
     for game in root.findall("game"):
         name = game.get("name") or _text(game, "description")
         if not name:
             raise RabError(f"TOSEC game has no canonical name: {member}")
-        system = game.get("system") or _text(game, "system") or ""
+        system = game.get("system") or _text(game, "system") or inferred_system
         category = game.get("category") or _text(game, "category")
         for rom in game.findall("rom"):
             raw_size = rom.get("size")
@@ -87,7 +90,7 @@ def parse_tosec(data: bytes, member: str = "<data>") -> tuple[dict, list[Authori
 class Authority:
     """Generic authority service. The SQLite file is disposable; M1 objects and sidecars are not."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self, archive: Archive):
         self.archive = archive
@@ -105,7 +108,8 @@ class Authority:
               release_identity TEXT NOT NULL, release_version TEXT, release_date TEXT,
               source_object TEXT NOT NULL, source TEXT NOT NULL, acquired_at TEXT NOT NULL,
               parser_version TEXT NOT NULL, rights TEXT NOT NULL, imported_at TEXT NOT NULL,
-              status TEXT NOT NULL, error TEXT, record_count INTEGER NOT NULL
+              status TEXT NOT NULL, error TEXT, record_count INTEGER NOT NULL,
+              selected_members TEXT NOT NULL DEFAULT '[]'
             );
             CREATE TABLE IF NOT EXISTS records (
               record_id TEXT PRIMARY KEY, dataset_id TEXT NOT NULL REFERENCES datasets(dataset_id),
@@ -131,6 +135,11 @@ class Authority:
             row = db.execute("SELECT version FROM authority_schema LIMIT 1").fetchone()
             if row is None:
                 db.execute("INSERT INTO authority_schema VALUES (?)", (self.VERSION,))
+            elif row[0] == 1:
+                columns = {x[1] for x in db.execute("PRAGMA table_info(datasets)")}
+                if "selected_members" not in columns:
+                    db.execute("ALTER TABLE datasets ADD COLUMN selected_members TEXT NOT NULL DEFAULT '[]'")
+                db.execute("UPDATE authority_schema SET version=?", (self.VERSION,))
             elif row[0] != self.VERSION:
                 raise RabError(f"unsupported authority schema version: {row[0]}")
 
@@ -139,17 +148,21 @@ class Authority:
         raw = f"{authority_id}\0{release}\0{source_sha}".encode()
         return hashlib.sha256(raw).hexdigest()
 
-    def _members(self, path: Path, data: bytes) -> Iterable[tuple[str, bytes]]:
+    def _members(self, path: Path, data: bytes, selected: set[str] | None = None) -> Iterable[tuple[str, bytes]]:
         if zipfile.is_zipfile(path):
             with zipfile.ZipFile(path) as archive:
                 for info in sorted(archive.infolist(), key=lambda x: x.filename):
-                    if not info.is_dir() and info.filename.lower().endswith((".dat", ".xml")):
+                    if (not info.is_dir() and info.filename.lower().endswith((".dat", ".xml"))
+                            and (selected is None or info.filename in selected)):
                         yield info.filename, archive.read(info)
         else:
-            yield path.name, data
+            if selected is None or path.name in selected:
+                yield path.name, data
 
     def import_tosec(self, path: Path, *, release: str | None = None,
-                     source: str | None = None, rights: Rights = Rights.UNKNOWN) -> dict:
+                     source: str | None = None, rights: Rights = Rights.UNKNOWN,
+                     members: list[str] | None = None, release_version: str | None = None,
+                     release_date: str | None = None) -> dict:
         self.initialize()
         if not path.is_file():
             raise RabError(f"authority input is not a file: {path}")
@@ -163,10 +176,15 @@ class Authority:
         records: list[AuthorityRecord] = []
         error = None
         try:
-            for member, content in self._members(path, data):
+            seen_members = set()
+            for member, content in self._members(path, data, set(members) if members else None):
+                seen_members.add(member)
                 identity, parsed = parse_tosec(content, member)
                 identities.append(identity)
                 records.extend(parsed)
+            missing = sorted(set(members or []) - seen_members)
+            if missing:
+                raise RabError(f"selected TOSEC DAT member is missing: {missing[0]}")
         except RabError as exc:
             error = str(exc)
         identity = identities[0] if identities else {}
@@ -174,18 +192,19 @@ class Authority:
         dataset_id = self._dataset_id("TOSEC", release_identity, source_sha)
         metadata = {
             "dataset_id": dataset_id, "authority_id": "TOSEC", "authority_type": "VERIFICATION_AUTHORITY",
-            "release_identity": release_identity, "release_version": identity.get("version"),
-            "release_date": identity.get("date"), "source_object": source_object,
-            "source": source or str(path), "acquired_at": now(), "parser_version": "rab-tosec-1",
+            "release_identity": release_identity, "release_version": release_version or identity.get("version"),
+            "release_date": release_date or identity.get("date"), "source_object": source_object,
+            "source": source or str(path), "acquired_at": now(), "parser_version": PARSER_VERSION,
             "rights": rights.value, "imported_at": now(), "status": "FAILED" if error else "IMPORTED",
-            "error": error, "record_count": len(records),
+            "error": error, "record_count": len(records), "selected_members": members or [],
         }
         self._write_metadata(metadata)
         with sqlite3.connect(self.db_path) as db:
-            db.execute("INSERT OR REPLACE INTO datasets VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            db.execute("INSERT OR REPLACE INTO datasets VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                        tuple(metadata[k] for k in ("dataset_id", "authority_id", "authority_type", "release_identity",
                        "release_version", "release_date", "source_object", "source", "acquired_at", "parser_version",
-                       "rights", "imported_at", "status", "error", "record_count")))
+                       "rights", "imported_at", "status", "error", "record_count"))
+                       + (json.dumps(metadata["selected_members"], sort_keys=True),))
             if not error:
                 self._insert_records(db, dataset_id, records)
         if error:
@@ -227,14 +246,15 @@ class Authority:
                 raise IntegrityError(f"authority source object missing: {source}")
             records: list[AuthorityRecord] = []
             if metadata["status"] == "IMPORTED":
-                for member, data in self._members(master, master.read_bytes()):
+                for member, data in self._members(master, master.read_bytes(), set(metadata.get("selected_members") or []) or None):
                     _, parsed = parse_tosec(data, member)
                     records.extend(parsed)
             with sqlite3.connect(self.db_path) as db:
-                db.execute("INSERT INTO datasets VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                db.execute("INSERT INTO datasets VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                            tuple(metadata[k] for k in ("dataset_id", "authority_id", "authority_type", "release_identity",
                            "release_version", "release_date", "source_object", "source", "acquired_at", "parser_version",
-                           "rights", "imported_at", "status", "error", "record_count")))
+                           "rights", "imported_at", "status", "error", "record_count"))
+                           + (json.dumps(metadata.get("selected_members", []), sort_keys=True),))
                 self._insert_records(db, metadata["dataset_id"], records)
         self.match_all()
 
@@ -266,12 +286,14 @@ class Authority:
         with sqlite3.connect(self.db_path) as db:
             db.row_factory = sqlite3.Row
             for dataset in datasets:
-                rows = db.execute("SELECT * FROM records WHERE dataset_id=?", (dataset,)).fetchall()
                 candidates = []
                 rejected = []
                 for field in ("sha1", "md5", "crc32"):
                     value = obj[field]
-                    matching = [r for r in rows if r[field] and r[field] == value and r["size"] == obj["size"]]
+                    matching = db.execute(
+                        f"SELECT * FROM records WHERE dataset_id=? AND {field}=? AND size=?",
+                        (dataset, value, obj["size"]),
+                    ).fetchall() if value else []
                     if matching:
                         # Never downgrade when an authority-supplied stronger hash disagrees.
                         stronger = HASHES[:HASHES.index(field)]
@@ -294,6 +316,8 @@ class Authority:
                         key: obj[key] for key in HASHES
                         if any(record[key] and record[key] == obj[key] for record in candidates)
                     }
+                    if result == "AMBIGUOUS":
+                        evidence["candidate_record_ids"] = sorted(r["record_id"] for r in candidates)
                 for record in candidates[:1] if result == "EXACT_MATCH" else [None]:
                     output.append(self._assertion(db, dataset, sha, record, result, method, evidence))
                 if not candidates:
@@ -307,7 +331,7 @@ class Authority:
                  "canonical_name": record["canonical_name"] if record else None,
                  "metadata": json.loads(record["metadata"]) if record else {},
                  "evidence": {"size": record["size"] if record else None, "authority_record": dict(record) if record else None,
-                               "parser_version": "rab-tosec-1"}, "created_at": imported_at}
+                               "parser_version": PARSER_VERSION}, "created_at": imported_at}
         assertion_id = hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode()).hexdigest()
         value["assertion_id"] = assertion_id
         db.execute("INSERT OR REPLACE INTO assertions VALUES (?,?,?,?,?,?,?,?,?,?,?)",
@@ -353,4 +377,15 @@ class Authority:
                 failures.append({"type": "dangling_records"})
             if db.execute("SELECT count(*) FROM assertions WHERE dataset_id NOT IN (SELECT dataset_id FROM datasets)").fetchone()[0]:
                 failures.append({"type": "dangling_assertions"})
+            with self.archive.db() as archive_db:
+                object_ids = {row[0] for row in archive_db.execute("SELECT sha256 FROM objects")}
+            if any(row[0] not in object_ids for row in db.execute("SELECT object_sha256 FROM assertions")):
+                failures.append({"type": "assertion_object_missing"})
+            if db.execute("SELECT count(*) FROM assertions WHERE record_id IS NOT NULL AND record_id NOT IN (SELECT record_id FROM records)").fetchone()[0]:
+                failures.append({"type": "assertion_record_missing"})
+            for dataset_id, expected in db.execute("SELECT dataset_id,record_count FROM datasets"):
+                actual = db.execute("SELECT count(*) FROM records WHERE dataset_id=?", (dataset_id,)).fetchone()[0]
+                if actual != expected:
+                    failures.append({"type": "record_count_mismatch", "dataset_id": dataset_id,
+                                     "expected": expected, "actual": actual})
         return {"outcome": "PASS" if not failures else "FAIL", "failures": failures}

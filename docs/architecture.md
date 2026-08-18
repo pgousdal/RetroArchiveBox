@@ -147,3 +147,44 @@ records the broader Amiga, neo-retro, and FPGA/recreation scope without forcing
 mappings. Archive.org direct-item and explicitly authorized collection
 archaeology, torrent transport selection, and mixed-mode track preservation
 remain future M7 requirements.
+
+## M4.1a real TOSEC qualification
+
+The official TOSECdev release dated 2025-03-13 was downloaded once from the
+TOSECdev download page and preserved as an M1 object. Its ZIP contains 4,743
+DAT files and 10,892 total files; the bounded RAB qualification selected five
+DATs rather than importing the whole 406,387,879-byte uncompressed DAT corpus:
+
+- `Commodore Amiga - Games - [ADF] (TOSEC-v2025-01-30_CM).dat`
+- `Commodore C64 - Games - Adventure - [D64] (TOSEC-v2025-02-16_CM).dat`
+- `Atari ST - Applications - [RAW] (TOSEC-v2023-06-14_CM).dat`
+- `Atari ST - Games - [ST] (TOSEC-v2025-01-15_CM).dat`
+- `Sinclair ZX Spectrum - Games - [TAP] (TOSEC-v2025-01-15_CM).dat`
+
+The preserved ZIP is 100,621,631 bytes with SHA-256
+`769dbd9cc6b28787a094fcaea83dd9ad91decfdec7de50db4af163fe96b9f25e`, BLAKE3
+`e96c9b91c9a8bd642bdb559bef83ec751879bfa981048e36a272beb9f3aeef1c`, SHA-1
+`7f4c244233dc369ad4804a58ae1827a0aeaa02da`, MD5
+`1c5b728e6bb73cc58ebb731057cff1d5`, and CRC32 `f5ba5318`. The selected import
+created 88,030 records. SHA-1, MD5, and CRC32 were present on all 88,030;
+there were no invalid sizes or duplicate SHA-1+size combinations. The pack
+had no `status` attributes in the selected subset. The Atari ST RAW DAT
+contained 14 multi-ROM game records and 2,352 ROM records; all other selected
+DATs were single-ROM records. UTF-8 names including `François`, `Hlípa`, and
+`æ`, plus TOSEC bracket/status-like name syntax, were preserved byte-for-byte.
+
+Real DATs use the Logiqx external `DOCTYPE` declaration. RAB now accepts that
+declaration with stdlib `ElementTree`, which does not fetch the external DTD,
+while rejecting `ENTITY` declarations. Input remains size-bounded and no
+filesystem or shell access is derived from names. The real parser required no
+other format-specific workaround.
+
+The real indexed query plan uses `records_hash_size` for SHA-1+size lookups;
+ordinary matching does not load or scan every authority record in Python.
+`authority verify` passed, and deleting `authority.sqlite3` followed by
+`rab authority rebuild` yielded 88,030 records and semantically equivalent
+datasets, records, mappings, and assertions. The only assertion in the
+qualification root was `NO_MATCH` for the preserved ZIP object itself. No
+legally suitable matching content object was available, so real content
+`EXACT_MATCH` is explicitly **NOT QUALIFIED**. Synthetic exact, rights,
+ambiguity, conflict, and historical-release tests remain required and pass.

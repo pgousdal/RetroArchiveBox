@@ -49,10 +49,27 @@ requirements. Expanded Amiga, neo-retro, and FPGA/recreation scope is recorded
 in `config/platforms.json`; M4.1 does not claim those ecosystems are covered by
 TOSEC.
 
-M4.1 implementation status: the generic framework and deterministic synthetic
-qualification are implemented. Bounded qualification against a real official
-TOSEC release was not performed in this environment, so M4.1 remains
-**INCOMPLETE / NOT QUALIFIED** and no museum-grade claim is made.
+### M4.1a real TOSEC qualification (2026-08-18)
+
+The official TOSECdev `TOSEC-v2025-03-13` DAT Pack was downloaded once and
+preserved through M1. The 100,621,631-byte ZIP was not an acquisition content
+collection. Five bounded DAT members covering Commodore Amiga, Commodore C64,
+Atari ST (including multi-ROM RAW), and Sinclair ZX Spectrum were parsed,
+producing 88,030 indexed records. All selected records had SHA-1, MD5, CRC32,
+and valid sizes. The artifact hashes and exact member list are recorded in
+`docs/architecture.md`.
+
+The real parser accepted TOSEC's standard Logiqx external `DOCTYPE` without
+external resolution and retained UTF-8 and canonical names. `authority verify`
+passed. Deleting the derived authority database and rebuilding solely from the
+preserved ZIP produced semantically equivalent datasets, records, mappings,
+and assertions. The indexed hash query plan used `records_hash_size`.
+
+No legally suitable existing content object matched a selected real record;
+real content `EXACT_MATCH` is therefore **NOT QUALIFIED**, without downloading
+content or manufacturing a match. Deterministic synthetic match and rights
+tests pass. M4.1 is **COMPLETE** for the qualified authority-data scope, with
+that explicit real-content limitation. M4.2 and M4.3 remain untouched.
 
 ## M3 catalogue, search & API
 

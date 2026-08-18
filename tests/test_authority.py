@@ -24,6 +24,20 @@ def test_tosec_parse_preserves_name_and_hashes():
     assert records[0].md5 and records[0].sha1
 
 
+def test_tosec_real_logiqx_doctype_and_multiple_roms():
+    data = b'''<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE datafile PUBLIC "-//Logiqx//DTD ROM Management Datafile//EN" "http://www.logiqx.com/Dats/datafile.dtd">
+<datafile><header><name>Commodore Amiga - Multipart</name><version>2025-03-13</version></header>
+<game name="Unicode Cafe"><description>Unicode Cafe</description>
+<rom name="one.bin" size="1" crc="c4ca4238" md5="c4ca4238c4ca4238c4ca4238c4ca4238" sha1="1111111111111111111111111111111111111111" />
+<rom name="two.bin" size="2" crc="c81e728d" md5="c81e728d9d4c2f636f067f89cc14862c" sha1="2222222222222222222222222222222222222222" />
+</game></datafile>'''.decode().encode()
+    header, records = parse_tosec(data, "real-shape.dat")
+    assert header["version"] == "2025-03-13"
+    assert len(records) == 2 and records[0].system == "Commodore Amiga"
+    assert records[0].name == "Unicode Cafe" and records[1].rom_name == "two.bin"
+
+
 def test_authority_import_match_rebuild_and_rights_independence(tmp_path):
     dat = tmp_path / "test.dat"; dat.write_bytes(DAT)
     content = tmp_path / "content.bin"; content.write_bytes(b"test")

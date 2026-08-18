@@ -98,6 +98,9 @@ def parser() -> argparse.ArgumentParser:
     authority_import.add_argument("path", type=Path)
     authority_import.add_argument("--release")
     authority_import.add_argument("--source")
+    authority_import.add_argument("--member", action="append", dest="members")
+    authority_import.add_argument("--release-version")
+    authority_import.add_argument("--release-date")
     authority_sub.add_parser("rebuild")
     authority_sub.add_parser("verify")
     authority_match = authority_sub.add_parser("match")
@@ -191,7 +194,8 @@ def run(args: argparse.Namespace) -> dict | list:
                 raise RabError(f"authority dataset not found: {args.dataset}")
             return rows[0]
         if args.authority_command == "import":
-            return authority.import_tosec(args.path, release=args.release, source=args.source)
+            return authority.import_tosec(args.path, release=args.release, source=args.source, members=args.members,
+                                          release_version=args.release_version, release_date=args.release_date)
         if args.authority_command == "rebuild":
             return authority.rebuild()
         if args.authority_command == "verify":

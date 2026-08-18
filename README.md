@@ -83,3 +83,21 @@ boolean. `EXACT_MATCH` requires hash and size evidence; collisions and
 conflicts remain visible. TOSEC recognition is independent of source provenance
 and rights. A TOSEC-organized Archive.org collection is an acquisition source,
 not authority data. M4.1 does not claim museum-grade status.
+
+### Bounded official TOSEC qualification
+
+M4.1a qualified the official TOSEC release published 2025-03-13 from
+`https://www.tosecdev.org/downloads/category/59-2025-03-13?download=117:tosec-dat-pack-complete-4743-tosec-v2025-03-13`.
+The preserved artifact is `TOSEC - DAT Pack - Complete (4743)
+(TOSEC-v2025-03-13).zip`, 100,621,631 bytes. Five DAT members were selected
+for parsing: Commodore Amiga Games ADF, Commodore C64 Adventure D64, Atari ST
+Applications RAW, Atari ST Games ST, and Sinclair ZX Spectrum Games TAP.
+The full ZIP was preserved through M1; only those members were indexed.
+
+The bounded import produced 88,030 records. All selected records supplied
+valid SHA-1, MD5, CRC32, and non-negative size values. The real pack uses the
+standard Logiqx external `DOCTYPE`; the parser accepts that declaration without
+fetching it and still rejects XML entities. A multi-ROM Atari ST RAW DAT and
+UTF-8 names were parsed successfully. Real content `EXACT_MATCH` remains
+`NOT QUALIFIED` because no legally suitable matching content object was
+available; no content set was downloaded.
