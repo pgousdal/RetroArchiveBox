@@ -158,6 +158,23 @@ then opt in to large online bootstrap. A backup acknowledgement without a
 successful restore test is reported as `WARNING`; RAB does not pretend to
 implement or verify replicas.
 
+## M6.11 Contained object analysis
+
+`rab analyze object <object-id>` analyzes a disposable copy of a preserved
+object. `metadata-only` is the conservative default; `identify` materializes
+bounded temporary bytes for hashing, while `preserve` and `archival` promote
+materialized regular files through the normal `Archive.ingest` boundary.
+Containers never replace their parents. Preserved children receive universal
+hashes and `CONTAINS` relationship evidence with logical paths and analyzer
+identity. ZIP, TAR, gzip, bzip2, xz, ISO9660, FAT12/16 inspection, Amiga/C64
+image boundaries, and LHA limitation reporting are provided without executing
+contained programs or mounting source media.
+
+Recursion, files, expanded bytes, member count, single-object size,
+compression ratio, and elapsed time are bounded. Traversal, symlink, special
+file, malformed archive, and archive-bomb conditions stop safely and remain
+analysis evidence. Analysis may fail without invalidating preservation.
+
 ## Retro-Compatible Web v1
 
 RAB provides an optional server-rendered read-only web interface through

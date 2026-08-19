@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/analysis-job-v1.json",
+  "title": "RAB Contained Analysis Job v1",
+  "type": "object",
+  "required": ["schema", "version", "job_id", "root_object", "policy", "limits", "state"],
+  "properties": {
+    "schema": {"const": "rab-analysis-job-v1"},
+    "version": {"const": 1},
+    "job_id": {"type": "string"},
+    "root_object": {"type": "string"},
+    "policy": {"enum": ["metadata-only", "identify", "preserve", "archival"]},
+    "limits": {"type": "object"},
+    "state": {"enum": ["ANALYSING", "COMPLETED", "COMPLETED_WITH_WARNINGS", "FAILED"]},
+    "discovered": {"type": "array"},
+    "relationships": {"type": "array"},
+    "limits_reached": {"type": "array"}
+  },
+  "additionalProperties": true
+}

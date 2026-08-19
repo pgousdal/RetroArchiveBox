@@ -17,6 +17,7 @@ from .media import MediaManager, OpticalManager
 from .flux import FluxManager
 from .physical import PhysicalMediaOrchestrator
 from .qualification import QualificationManager
+from .analysis import AnalysisManager
 from .tree_ingest import TreeIngestManager
 
 
@@ -85,6 +86,7 @@ class WebApplication:
             if route == "/media": return self.media_jobs(retro)
             if route == "/physical-media": return self.physical_media(retro)
             if route == "/qualification": return self.qualification(retro)
+            if route == "/analysis": return self.analysis(retro)
             if route == "/optical": return self.optical_jobs(retro)
             if route == "/flux": return self.flux_jobs(retro)
             if route.startswith("/source/"): return self.source(unquote(route.removeprefix("/source/")), retro)
@@ -211,6 +213,11 @@ class WebApplication:
         value = QualificationManager(self.catalogue.archive).public_status(); checks = value.get("check_states", {}); prefix = "/retro" if retro else "/web"
         content = '<p>Read-only qualification evidence. Implemented is not physically qualified.</p><p>Readiness: <strong>' + _e(value.get("readiness", {}).get("level")) + '</strong> / profile ' + _e(value.get("readiness", {}).get("profile")) + '</p><p>Runs recorded: ' + _e(value.get("runs")) + '; latest: ' + _e(value.get("latest")) + '</p><h3>Backup/replica</h3><p>' + _e(value.get("backup", {}).get("state")) + ': ' + _e(value.get("backup", {}).get("limitations")) + '</p><h3>Checks</h3><ul>' + ''.join('<li>' + _e(item) + ': ' + _e(state) + '</li>' for item, state in checks.items()) + '</ul>'
         return 200, "text/html; charset=utf-8", self.page("Qualification", content, retro), None
+
+    def analysis(self, retro):
+        value = AnalysisManager(self.catalogue.archive); status = value.status(); jobs = value.jobs(); content = '<p>Read-only contained-object analysis. Containers remain preservation masters; analysis is bounded and policy-controlled.</p><p>Jobs: ' + _e(status.get("jobs")) + '; completed: ' + _e(status.get("completed")) + '; warnings/limits: ' + _e(status.get("warnings")) + '</p><table><tr><th>Job</th><th>Root</th><th>Policy</th><th>State</th><th>Discovered</th><th>Materialized</th><th>Limits</th></tr>'
+        content += ''.join('<tr><td>' + _e(x.get("job_id")) + '</td><td><code>' + _e(x.get("root_object")) + '</code></td><td>' + _e(x.get("policy")) + '</td><td>' + _e(x.get("state")) + '</td><td>' + _e(len(x.get("discovered", []))) + '</td><td>' + _e(x.get("materialized_count", 0)) + '</td><td>' + _e(x.get("limits_reached", [])) + '</td></tr>' for x in jobs) + '</table>'
+        return 200, "text/html; charset=utf-8", self.page("Contained Analysis", content, retro), None
 
     def optical_jobs(self, retro):
         jobs = OpticalManager(self.catalogue.archive).jobs(); content = '<p>Read-only optical capture status.</p><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No optical capture jobs recorded.</p>'

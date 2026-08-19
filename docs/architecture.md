@@ -360,6 +360,49 @@ host and storage, ingest owned/local physical media and purchased downloads,
 run fixity and backup/restore checks, and only then enable large online
 bootstrap or mirroring. Implemented does not mean physically qualified.
 
+## Contained Object Discovery (M6.11)
+
+`AnalysisManager` is a bounded analysis plane above immutable RAB objects:
+
+```text
+verified preservation master -> disposable read-only copy/workspace
+       -> analyzer probe/list -> metadata discovery
+       -> optional bounded materialization -> Archive.ingest by policy
+       -> CONTAINS evidence, identity, malware/authority/catalogue hooks
+```
+
+Analyzers implement a small plugin contract for probe, member listing, and
+materialization. The initial registry includes ZIP, TAR, gzip, bzip2, xz,
+mountless ISO9660 and FAT12/16 directory inspection, Amiga/C64 image
+inspection boundaries, and truthful LHA/LZH unsupported materialization. No
+analyzer receives arbitrary shell arguments, executes contained programs, or
+uses `shell=True`. No source image is mounted or changed.
+
+Analysis policies are `metadata-only`, `identify`, `preserve`, and
+`archival`; metadata-only is default. Every job applies maximum depth/files,
+expanded bytes, single object size, member count, compression ratio, nested
+objects, and elapsed time limits. Paths are normalized/rejected for absolute,
+traversal, drive-letter, NUL, symlink, hardlink, device, FIFO, and socket
+behavior. Limit stops are `COMPLETED_WITH_WARNINGS` with
+`ANALYSIS_LIMIT_REACHED`, not corruption claims.
+
+Materialized children are independently hashed with the existing five-hash
+identity path. If bytes already exist, `Archive.ingest` converges the master
+and adds an occurrence; the analyzer then records a typed `CONTAINS`
+relationship from parent to child with analyzer/version/depth/logical-path
+evidence. The parent remains preserved and byte-distinct. Metadata-only
+members remain discovery evidence in the immutable analysis job and do not
+become payload objects. Recursive children retain the complete relationship
+chain rather than flattened provenance.
+
+Analysis jobs under `analysis/jobs` contain no payload bytes and are rerunnable
+derived operational evidence. API routes `/api/v1/analysis/status`, `/jobs`,
+and `/objects/<id>/relationships`, plus RetroWeb `/retro/analysis`, expose
+bounded read-only summaries with no temporary paths. Contained objects are
+eligible for later malware and authority processing; `NOT_SCANNED` and
+`NOT_CHECKED` remain honest states. The containment product foundation emits
+metadata-only relationship maps through the existing `ProductBuilder`.
+
 ## Optical Media Ingest (M6.5)
 
 Optical preservation distinguishes a physical medium, inspection/layout

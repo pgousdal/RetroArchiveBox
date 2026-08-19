@@ -28,6 +28,7 @@ from .media import MediaManager, OpticalManager
 from .flux import FluxManager, FloppyProfile, VerificationPolicy
 from .physical import PhysicalMediaOrchestrator
 from .qualification import QualificationManager, QualificationProfile, SeedPlanManager
+from .analysis import AnalysisLimits, AnalysisManager
 from .tree_ingest import TreeIngestManager
 
 
@@ -84,6 +85,13 @@ def parser() -> argparse.ArgumentParser:
     seed_add = seed_sub.add_parser("add"); seed_add.add_argument("plan_id"); seed_add.add_argument("--label", required=True); seed_add.add_argument("--category", required=True); seed_add.add_argument("--expected-count", type=int); seed_add.add_argument("--nominal-bytes", type=int); seed_add.add_argument("--provenance", default="unknown"); seed_add.add_argument("--notes", default="")
     seed_show = seed_sub.add_parser("show"); seed_show.add_argument("plan_id")
     seed_sub.add_parser("list")
+    analyze = sub.add_parser("analyze", help="bounded non-mutating contained-object analysis")
+    analyze_sub = analyze.add_subparsers(dest="analyze_command", required=True)
+    analyze_sub.add_parser("status")
+    analyze_jobs = analyze_sub.add_parser("jobs")
+    analyze_object = analyze_sub.add_parser("object"); analyze_object.add_argument("object_id"); analyze_object.add_argument("--policy", choices=["metadata-only", "identify", "preserve", "archival"], default="metadata-only"); analyze_object.add_argument("--max-depth", type=int, default=3); analyze_object.add_argument("--max-files", type=int, default=1000); analyze_object.add_argument("--max-bytes", type=int, default=256 * 1024 * 1024); analyze_object.add_argument("--max-single-bytes", type=int, default=64 * 1024 * 1024); analyze_object.add_argument("--max-members", type=int, default=10000); analyze_object.add_argument("--max-ratio", type=int, default=1000); analyze_object.add_argument("--max-seconds", type=float, default=30.0)
+    analyze_show = analyze_sub.add_parser("show"); analyze_show.add_argument("job_id")
+    analyze_relationships = analyze_sub.add_parser("relationships"); analyze_relationships.add_argument("object_id")
     source = sub.add_parser("source", help="inspect and operate configured sources")
     source_sub = source.add_subparsers(dest="source_command", required=True)
     source_sub.add_parser("list")
@@ -201,7 +209,7 @@ def parser() -> argparse.ArgumentParser:
     product = sub.add_parser("product", help="build deterministic derived metadata products")
     product_sub = product.add_subparsers(dest="product_command", required=True)
     product_sub.add_parser("list")
-    product_build = product_sub.add_parser("build"); product_build.add_argument("product", choices=["identity", "fixity", "authority-crosswalk"]); product_build.add_argument("--platform"); product_build.add_argument("--format", dest="format_id"); product_build.add_argument("--authority"); product_build.add_argument("--hash-algorithm", dest="hash_algorithm")
+    product_build = product_sub.add_parser("build"); product_build.add_argument("product", choices=["identity", "fixity", "authority-crosswalk", "containment"]); product_build.add_argument("--platform"); product_build.add_argument("--format", dest="format_id"); product_build.add_argument("--authority"); product_build.add_argument("--hash-algorithm", dest="hash_algorithm")
     local = sub.add_parser("local-ingest", help="operate local import inbox and file ingest")
     local_sub = local.add_subparsers(dest="local_command", required=True)
     local_sub.add_parser("status"); local_sub.add_parser("jobs")
@@ -304,6 +312,14 @@ def run(args: argparse.Namespace) -> dict | list:
         if args.seed_command == "add": return plans.add(args.plan_id, label=args.label, category=args.category, expected_count=args.expected_count, nominal_bytes=args.nominal_bytes, provenance=args.provenance, notes=args.notes)
         if args.seed_command == "show": return plans.show(args.plan_id)
         return plans.list()
+    if args.command == "analyze":
+        manager = AnalysisManager(archive)
+        if args.analyze_command == "status": return manager.status()
+        if args.analyze_command == "jobs": return manager.jobs()
+        if args.analyze_command == "show": return manager.show(args.job_id)
+        if args.analyze_command == "relationships": return manager.relationships(args.object_id)
+        limits = AnalysisLimits(max_depth=args.max_depth, max_files=args.max_files, max_bytes=args.max_bytes, max_single_bytes=args.max_single_bytes, max_members=args.max_members, max_ratio=args.max_ratio, max_seconds=args.max_seconds)
+        return manager.analyze(args.object_id, policy=args.policy, limits=limits)
     if args.command == "source":
         if args.source_command == "list":
             return [x.public() for x in registry.load().values()]

@@ -23,12 +23,13 @@ class ProductBuilder:
 
     def build(self, product: str, *, platform: str | None = None, format_id: str | None = None,
               authority: str | None = None, hash_algorithm: str | None = None) -> dict:
-        if product not in {"identity", "fixity", "authority-crosswalk"}:
+        if product not in {"identity", "fixity", "authority-crosswalk", "containment"}:
             raise RabError("unknown derived product")
         rows = self.identity.search(platform=platform, format_id=format_id, authority=authority, hash_algorithm=hash_algorithm)
         if product == "identity":
             records = [self._identity_row(x) | {"relationships": self.identity.relationships("sha256:" + x["sha256"])} for x in rows]
         elif product == "fixity": records = [{"object_id": "sha256:" + x["sha256"], "size": x["size"], "crc32": x["crc32"], "md5": x["md5"], "sha1": x["sha1"], "sha256": x["sha256"], "blake3": x["blake3"]} for x in rows]
+        elif product == "containment": records = [{"object_id": "sha256:" + x["sha256"], "relationships": [r for r in self.identity.relationships("sha256:" + x["sha256"]) if r.get("relationship") == "CONTAINS" or r.get("object_id") == x["sha256"]]} for x in rows if any(r.get("relationship") == "CONTAINS" for r in self.identity.relationships("sha256:" + x["sha256"]))]
         else: records = [{"object_id": "sha256:" + x["sha256"], "authorities": json.loads(x["authorities"])} for x in rows if json.loads(x["authorities"])]
         records = sorted(records, key=lambda x: x.get("object_id", ""))
         filter_key = hashlib.sha256(json.dumps({"platform": platform, "format": format_id, "authority": authority, "hash": hash_algorithm}, sort_keys=True).encode()).hexdigest()[:12]

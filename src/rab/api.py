@@ -24,6 +24,7 @@ from .media import MediaManager, OpticalManager
 from .flux import FluxManager
 from .physical import PhysicalMediaOrchestrator
 from .qualification import QualificationManager
+from .analysis import AnalysisManager
 from .tree_ingest import TreeIngestManager
 
 
@@ -102,6 +103,13 @@ class CatalogueAPI:
         if route == "/api/v1/qualification/runs": return 200, [{key: value for key, value in item.items() if key in {"qualification_id", "recorded_at", "profile", "readiness"}} for item in qualification.runs()]
         m = re.fullmatch(r"/api/v1/qualification/runs/([0-9a-f-]+)", route)
         if m: return 200, qualification.public_report(qualification.report(m.group(1)))
+        analysis = AnalysisManager(self.catalogue.archive)
+        if route == "/api/v1/analysis/status": return 200, analysis.status()
+        if route == "/api/v1/analysis/jobs": return 200, [analysis.public_job(x) for x in analysis.jobs()]
+        m = re.fullmatch(r"/api/v1/analysis/jobs/([0-9a-f]+)", route)
+        if m: return 200, analysis.public_job(analysis.show(m.group(1)))
+        m = re.fullmatch(r"/api/v1/analysis/objects/(.+)/relationships", route)
+        if m: return 200, analysis.relationships(unquote(m.group(1)))
         if route.startswith("/api/v1/products/"):
             product_path = unquote(route.removeprefix("/api/v1/products/"))
             matches = [x for x in ProductBuilder(self.catalogue.archive, identity=identity).list() if x.get("path_id") == product_path]

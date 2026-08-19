@@ -366,6 +366,23 @@ qualification command coverage, contained-object analysis, deeper optical
 capture, tape/cartridge adapters, and public derived products. Museum-grade
 status remains **NO**.
 
+## M6.11 Contained Object Discovery & Recursive Analysis Foundation (2026-08-19)
+
+M6.11 adds bounded disposable-copy analysis, generic analyzer registration,
+metadata-only/identify/preserve/archival policies, ZIP/TAR/compression,
+mountless ISO9660/FAT inspection, traversal/symlink/archive-bomb protections,
+recursive analysis jobs, universal hashes, typed containment relationships,
+dedup convergence, malware coverage evidence, containment product output,
+CLI/API/RetroWeb surfaces, and generated attack fixtures. Containers remain
+preservation masters and analysis failure never invalidates them.
+
+LHA/LZH materialization is intentionally not claimed without a qualified
+toolchain. Real CD, USB, floppy-derived filesystem, Debian 13 dependency, and
+production-soak qualification are **NOT PERFORMED**. Future work includes
+native filesystem analyzers, contained-object malware analysis, real local
+seed recursive analysis, deeper optical formats, online bootstrap activation,
+and public derived products. Museum-grade status remains **NO**.
+
 ## M6.10 Local-First Seed Readiness & Physical Qualification (2026-08-19)
 
 M6.10 adds immutable qualification runs, explicit readiness levels and
