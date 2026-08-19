@@ -196,6 +196,25 @@ fixtures and existing bounded HTTP behavior; rsync is available as version
 public FTP endpoint was qualified. RetroWeb exposes source endpoint metadata
 read-only; it is not an acquisition control panel.
 
+## M6.2 Acquisition Runtime Qualification & Bootstrap
+
+M6.2 adds resumable generic bootstrap jobs over the M6.1 transport resolver.
+`rab acquisition bootstrap plan/start/status/resume/report` uses the selected
+bootstrap transport, processes explicit bounded items, persists operational job
+state under `bootstrap-metadata`, skips already-present source paths on rerun,
+and emits `rab-bootstrap-report-v1`. Reports distinguish acquired,
+deduplicated, and failed items and retain the selected transport plan/version.
+API and RetroWeb expose status only; bootstrap mutation remains CLI/operator
+local. Aria2 remains an acquisition client, not a daemon or archive store, and
+is explicitly provisioned through the existing official Debian package path.
+
+M6.2 also supports magnet metadata through the existing BitTorrent boundary,
+with preserved magnet provenance and infohash evidence. A bounded local
+BitTorrent runtime attempt was made in the available Ubuntu environment but
+did not complete successfully; `aria2c` was not installed system-wide and no
+BitTorrent runtime qualification is claimed. No large public collection was
+downloaded. Museum-grade status remains unclaimed.
+
 ## M4.1 authority assertions
 
 `rab authority import FILE.dat` preserves the original TOSEC DAT through M1,

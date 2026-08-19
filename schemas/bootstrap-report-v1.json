@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/bootstrap-report-v1.json",
+  "title": "RAB Bootstrap Report v1",
+  "type": "object",
+  "required": ["schema", "job_id", "source", "purpose", "state", "transport_plan", "items", "objects"],
+  "properties": {
+    "schema": {"const": "rab-bootstrap-report-v1"},
+    "job_id": {"type": "string"},
+    "source": {"type": "string"},
+    "purpose": {"const": "bootstrap"},
+    "state": {"enum": ["PLANNED", "RUNNING", "INTERRUPTED", "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "CANCELLED"]},
+    "transport_plan": {"type": "object"},
+    "items": {"type": "object"},
+    "objects": {"type": "array", "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+  },
+  "additionalProperties": true
+}

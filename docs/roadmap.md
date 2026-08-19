@@ -216,6 +216,27 @@ and no public FTP endpoint was qualified. FTP qualification is local-fixture
 only. No large public collection, automatic synchronization, Archive.org work,
 or consumer integration was started. Museum-grade status remains **NO**.
 
+## M6.2 Acquisition Runtime Qualification & Bootstrap Orchestration (2026-08-19)
+
+M6.2 adds generic resumable bootstrap jobs on top of M6.1 transport policy.
+Jobs persist source, purpose, selected transport plan, item progress, bytes,
+deduplication, failures, lifecycle state, and versioned machine-readable
+reports. CLI start/resume/report commands are operator-local; API and RetroWeb
+are read-only status surfaces. Existing staging, verification, `Archive.ingest`,
+rights, malware, and deduplication boundaries remain unchanged. Aria2 is
+explicitly reportable/provisioned through the official Debian package path with
+no daemon/RPC exposure. Magnet metadata support and bounded BitTorrent file
+limits were added to the existing M2 path.
+
+The available environment is Ubuntu 26.04 x86_64 with rsync `3.4.1`; aria2c is
+not system-installed. An isolated official Ubuntu aria2 runtime attempt against
+a small local web-seeded torrent did not complete, so BitTorrent runtime
+qualification is **NOT QUALIFIED**. Deterministic bootstrap, interruption/
+resume, idempotent rerun, local HTTP/FTP convergence, provenance, API,
+RetroWeb, and staging-safety tests pass. No Debian 13 provisioning or remote
+rsync qualification was performed. M6.3 hash/catalogue work remains out of
+scope. Museum-grade status remains **NO**.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

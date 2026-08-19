@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 from .api import CatalogueAPI
 from .broker import BrokerError, ConsumerContext, DeliveryMode, ResourceBroker, ResolutionState
 from .errors import PolicyError, RabError
+from .bootstrap import BootstrapStore
 
 
 CSS = """body { font-family: Arial, Helvetica, sans-serif; margin: 1em; max-width: 60em; color: #111; background: #fff; }
@@ -67,6 +68,8 @@ class WebApplication:
             if route == "/platforms": return self.platforms(retro)
             if route.startswith("/platform/"): return self.platform(unquote(route.removeprefix("/platform/")), query, retro)
             if route == "/sources": return self.sources(retro)
+            if route == "/bootstrap": return self.bootstrap(retro)
+            if route.startswith("/bootstrap/"): return self.bootstrap_job(unquote(route.removeprefix("/bootstrap/")), retro)
             if route.startswith("/source/"): return self.source(unquote(route.removeprefix("/source/")), retro)
             if route.startswith("/resource/"): return self.resource(unquote(route.removeprefix("/resource/")), retro)
             if route.startswith("/set/"): return self.resource_set(unquote(route.removeprefix("/set/")), retro)
@@ -93,7 +96,7 @@ class WebApplication:
     def home(self, retro):
         stats = self.broker.stats()
         content = '<p>Preservation-first archive browser.</p><form action="' + ("/retro" if retro else "/web") + '/search" method="get"><label for="q">Search:</label><input type="text" id="q" name="q" size="32" /><input type="submit" value="Search" /></form>'
-        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li></ul>'
+        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li></ul>'
         content += '<p class="muted">Indexed resources: ' + _e(stats.get("resources", 0)) + '; resource sets: ' + _e(stats.get("resource_sets", 0)) + '.</p>'
         return 200, "text/html; charset=utf-8", self.page("Home", content, retro), None
 
@@ -140,6 +143,16 @@ class WebApplication:
         source = self.api.registry.get(source_id) if self.api.registry else None; prefix = "/retro" if retro else "/web"
         content = '<p><strong>' + _e(source.name) + '</strong></p><dl><dt>Source ID</dt><dd>' + _e(source.id) + '</dd><dt>Class</dt><dd>' + _e(source.source_class.value) + '</dd><dt>Platforms</dt><dd>' + _e(', '.join(source.platforms)) + '</dd></dl><h3>Acquisition transports</h3><ul>' + ''.join('<li>' + _e(x["transport"]) + ': ' + _e(x["endpoint"]) + '</li>' for x in source.endpoints) + '</ul><p><a href="' + _url(prefix + '/search', source=source.id) + '">Browse this source</a></p>'
         return 200, "text/html; charset=utf-8", self.page("Source", content, retro), None
+
+    def bootstrap(self, retro):
+        jobs = BootstrapStore(self.catalogue.archive, read_only=True).list(); prefix = "/retro" if retro else "/web"
+        content = '<p>Read-only bootstrap status.</p><ul>' + ''.join('<li><a href="' + prefix + '/bootstrap/' + quote(x["job_id"], safe="") + '">' + _e(x["job_id"]) + '</a>: ' + _e(x.get("state")) + ' (' + _e(x.get("source")) + ')</li>' for x in jobs) + '</ul>' if jobs else '<p>No bootstrap jobs recorded.</p>'
+        return 200, "text/html; charset=utf-8", self.page("Bootstrap Jobs", content, retro), None
+
+    def bootstrap_job(self, job_id, retro):
+        job = BootstrapStore(self.catalogue.archive, read_only=True).read(job_id); prefix = "/retro" if retro else "/web"
+        content = '<dl><dt>Job</dt><dd><code>' + _e(job["job_id"]) + '</code></dd><dt>Source</dt><dd>' + _e(job["source"]) + '</dd><dt>State</dt><dd>' + _e(job["state"]) + '</dd><dt>Transport</dt><dd>' + _e((job.get("plan", {}).get("selected") or {}).get("transport")) + '</dd><dt>Bytes</dt><dd>' + _e(job.get("bytes_transferred", 0)) + '</dd></dl><h3>Progress</h3><p>Completed: ' + _e(len(job.get("completed_items", []))) + '; deduplicated: ' + _e(len(job.get("skipped_items", []))) + '; failed: ' + _e(len(job.get("failed_items", []))) + '</p><p><a href="' + prefix + '/bootstrap">All bootstrap jobs</a></p>'
+        return 200, "text/html; charset=utf-8", self.page("Bootstrap Job", content, retro), None
 
     def resource(self, resource_id, retro):
         item = self.broker.show(resource_id); prefix = "/retro" if retro else "/web"; analysis = item.get("malware_analysis", {}); content = '<dl><dt>Resource ID</dt><dd><code>' + _e(item["resource_id"]) + '</code></dd><dt>Name</dt><dd>' + _e(item.get("name")) + '</dd><dt>Version</dt><dd>' + _e(item.get("version")) + '</dd><dt>Kind</dt><dd>' + _e(item.get("kind")) + '</dd><dt>Platform</dt><dd>' + _e(item.get("platform")) + '</dd><dt>Availability</dt><dd>' + _e(item.get("availability")) + '</dd><dt>Rights</dt><dd>' + _e(item.get("rights")) + '</dd><dt>Malware analysis</dt><dd>' + _e(analysis.get("status", "NOT_SCANNED")) + '</dd></dl>'

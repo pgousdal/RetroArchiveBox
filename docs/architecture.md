@@ -286,6 +286,36 @@ service was added. Current runtime evidence is rsync `3.4.1`; BitTorrent's
 configured `aria2c` was unavailable and FTP used deterministic local fixtures,
 not a public server.
 
+## Bootstrap Orchestration (M6.2)
+
+Bootstrap orchestration is a thin job layer above `TransportResolver` and
+`Acquisition`. It does not implement transport logic. A planned job stores the
+source, `BOOTSTRAP` purpose, selected transport plan, item list, and lifecycle
+state. Execution persists progress after each item in JSON under
+`bootstrap-metadata/jobs`; reports under `bootstrap-metadata/reports` use
+`rab-bootstrap-report-v1` and are immutable operational evidence. Repeated
+jobs skip an already-present `(logical source, source path)` relationship, while
+identical bytes arriving through a new path/source still converge through
+`Archive.ingest`.
+
+Jobs use `PLANNED`, `RUNNING`, `INTERRUPTED`, `COMPLETED`,
+`COMPLETED_WITH_ERRORS`, `FAILED`, and `CANCELLED`. A process interruption
+leaves resumable state; `resume` continues incomplete items and does not rewrite
+completed evidence. Bytes, object IDs, failure records, deduplication counts,
+transport version/capability, and timestamps are retained. Staging and free
+space controls remain owned by acquisition adapters. No scheduler or continuous
+synchronization worker was added.
+
+The existing aria2 package is explicitly controlled by `rab_aria2_enabled`
+(default true for compatibility with the M2 BitTorrent path); no aria2 daemon,
+RPC listener, credentials, or public exposure is configured. `TransportResolver`
+reports aria2/rsync executable versions through safe `--version` argument-list
+calls. BitTorrent metadata files and magnet URIs cross the normal ingest path;
+magnet metadata preserves the URI and infohash evidence separately from payload
+piece/hash verification. A local Ubuntu runtime attempt did not complete a
+successful aria2 torrent transfer, so BitTorrent remains implementation-tested
+but not runtime-qualified in this environment.
+
 ## Aminet packages
 
 An Aminet logical ID such as `aminet:comm/term/ncomm307` links independently

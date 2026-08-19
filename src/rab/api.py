@@ -16,6 +16,7 @@ from .additional_authorities import AdditionalAuthority
 from .broker import BrokerError, ConsumerContext, ConsumerRegistry, DeliveryMode, ResourceBroker, ResolutionState
 from .malware import MalwareStore, aggregate
 from .transports import AcquisitionPurpose, TransportResolver
+from .bootstrap import BootstrapStore
 
 
 class CatalogueAPI:
@@ -52,6 +53,15 @@ class CatalogueAPI:
             return 200, [x.public() for x in self.registry.load().values()] if self.registry else []
         if route == "/api/v1/acquisition/transports":
             return 200, TransportResolver().capabilities()
+        bootstrap_store = BootstrapStore(self.catalogue.archive, read_only=True)
+        if route == "/api/v1/acquisition/bootstrap/jobs":
+            return 200, bootstrap_store.list()
+        m = re.fullmatch(r"/api/v1/acquisition/bootstrap/jobs/([0-9a-f]+)/report", route)
+        if m:
+            return 200, bootstrap_store.report(m.group(1))
+        m = re.fullmatch(r"/api/v1/acquisition/bootstrap/jobs/([0-9a-f]+)", route)
+        if m:
+            return 200, bootstrap_store.read(m.group(1))
         m = re.fullmatch(r"/api/v1/acquisition/sources/([a-z0-9-]+)", route)
         if m:
             if not self.registry: return 404, {"error": "not_found"}

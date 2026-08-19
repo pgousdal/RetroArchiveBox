@@ -11,7 +11,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 from pathlib import Path
 
 from .errors import IntegrityError, PolicyError, RabError
@@ -369,7 +369,13 @@ class Acquisition:
         if source.backend.value != "bittorrent":
             raise PolicyError("torrent acquisition requires the bittorrent backend")
         self._require_enabled(source)
-        metadata = preserve_torrent(self, source, torrent_path, source_path, acquisition_context=acquisition_context)
+        magnet = str(torrent_path)
+        if magnet.startswith("magnet:?"):
+            metadata = self.preserve_magnet(source, magnet, source_path, acquisition_context=acquisition_context)
+            torrent_argument = magnet
+        else:
+            metadata = preserve_torrent(self, source, Path(torrent_path), source_path, acquisition_context=acquisition_context)
+            torrent_argument = str(self._stage_file(source, source_path, Path(torrent_path))) if not Path(torrent_path).resolve().is_relative_to(self.staging.resolve()) else str(torrent_path)
         client_name = source.torrent_client or "aria2c"
         client = shutil.which(client_name)
         if not client:
@@ -378,26 +384,35 @@ class Acquisition:
             raise RabError(f"BitTorrent client not installed: {client_name}; torrent metadata was preserved")
         destination = self._staging_destination(self.staging / source.id / "torrent" / metadata["infohash_v1"])
         destination.mkdir(parents=True, exist_ok=True)
-        staged_torrent = self._stage_file(source, source_path, torrent_path)
         command = [client, f"--dir={destination}", "--continue=true", "--check-integrity=true",
                    "--seed-time=0", f"--max-connection-per-server={source.concurrency}",
                    "--file-allocation=none"]
         if source.rate_limit:
             command.append(f"--max-overall-download-limit={source.rate_limit}")
-        command.extend(["--", str(staged_torrent)])
+        command.extend(["--", torrent_argument])
         self.event(source.id, source_path, "TORRENT_PAYLOAD_ACQUISITION", "STARTED",
                    {"infohash_v1": metadata["infohash_v1"], "command": command, **(acquisition_context or {})})
-        result = subprocess.run(command, check=False, capture_output=True, text=True)
+        try:
+            result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=source.timeout)
+        except subprocess.TimeoutExpired as exc:
+            self.event(source.id, source_path, "TORRENT_PAYLOAD_ACQUISITION", "FAIL", {"error": "torrent client timeout", **(acquisition_context or {})})
+            raise RabError("torrent client timed out") from exc
         if result.returncode:
             self.event(source.id, source_path, "TORRENT_PAYLOAD_ACQUISITION", "FAIL",
                        {"returncode": result.returncode, "stderr": result.stderr[-2000:]})
             raise RabError(f"torrent client failed with exit code {result.returncode}")
         payloads = []
+        files_seen = 0; bytes_seen = 0
         for candidate in sorted(destination.rglob("*")):
             if candidate.is_symlink():
                 raise PolicyError(f"torrent client produced a symlink: {candidate}")
             if not candidate.is_file() or candidate.name.endswith((".part", ".torrent", ".aria2")):
                 continue
+            files_seen += 1; bytes_seen += candidate.stat().st_size
+            if files_seen > int(source.metadata_rules.get("max_files", 10000)):
+                raise PolicyError("torrent file-count limit exceeded")
+            if source.staging_limit_bytes is not None and bytes_seen > source.staging_limit_bytes:
+                raise PolicyError("torrent staging limit exceeded")
             relative = candidate.relative_to(destination).as_posix()
             object_id = self.ingest_completed(source, f"torrent/{metadata['infohash_v1']}/{relative}", candidate,
                                                "application/octet-stream")
@@ -405,6 +420,28 @@ class Acquisition:
         self.event(source.id, source_path, "TORRENT_PAYLOAD_ACQUIRED", "PASS",
                    {"infohash_v1": metadata["infohash_v1"], "payloads": payloads, **(acquisition_context or {})})
         return {**metadata, "payloads": payloads, "command": command}
+
+    def preserve_magnet(self, source: SourceDefinition, magnet: str, source_path: str,
+                        acquisition_context: dict | None = None) -> dict:
+        if len(magnet) > 4096 or any(x in magnet for x in ("\r", "\n")):
+            raise PolicyError("invalid magnet URI")
+        parsed = urlparse(magnet)
+        if parsed.scheme != "magnet" or parsed.username or parsed.password:
+            raise PolicyError("only safe magnet URIs are accepted")
+        values = parse_qs(parsed.query)
+        infohash = next((x.removeprefix("urn:btih:") for x in values.get("xt", []) if x.startswith("urn:btih:")), None)
+        if not infohash:
+            raise PolicyError("magnet URI has no BitTorrent infohash")
+        self._validate_source_path(source_path)
+        target = self.staging / source.id / "magnet-metadata" / (hashlib.sha256(magnet.encode()).hexdigest() + ".magnet")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(magnet, encoding="ascii")
+        target.chmod(0o444)
+        context = {"transport": "bittorrent", "magnet_infohash": infohash}; context.update(acquisition_context or {})
+        object_id = self.ingest_completed(source, source_path, target, "application/x-bittorrent-magnet", target.name, acquisition_context=context)
+        self.event(source.id, source_path, "TORRENT_MAGNET_METADATA", "PASS", {"object_id": object_id, **context})
+        target.unlink(missing_ok=True)
+        return {"object_id": object_id, "infohash_v1": infohash, "magnet_uri": magnet, "source": source.id, "source_path": source_path}
 
     def plan_rsync(self, source: SourceDefinition, destination: Path, scope: str | None = None) -> list[str]:
         source.validate_policy(bulk=True)
@@ -651,6 +688,8 @@ def torrent_infohash(data: bytes) -> str:
 
 def preserve_torrent(acquisition: Acquisition, source: SourceDefinition, path: Path,
                      source_path: str, acquisition_context: dict | None = None) -> dict:
+    if path.stat().st_size > 64 * 1024 * 1024:
+        raise PolicyError("torrent metadata exceeds bounded size limit")
     data = path.read_bytes()
     infohash = torrent_infohash(data)
     try:

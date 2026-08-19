@@ -6,9 +6,15 @@
       - python3-venv
       - python3-pip
       - rsync
-      - aria2
     state: present
     update_cache: true
+
+- name: Install optional Debian aria2 acquisition client
+  ansible.builtin.apt:
+    name: aria2
+    state: present
+    update_cache: true
+  when: rab_aria2_enabled
 
 - name: Install optional Debian ClamAV command-line scanner
   ansible.builtin.apt:

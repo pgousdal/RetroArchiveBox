@@ -22,3 +22,4 @@ rab_retro_http_port: 8081
 rab_retro_http_enabled: false
 rab_clamav_enabled: false
 rab_clamav_freshclam_enabled: false
+rab_aria2_enabled: true

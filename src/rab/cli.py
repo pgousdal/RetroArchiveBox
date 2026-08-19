@@ -20,6 +20,7 @@ from .broker import ConsumerContext, ConsumerRegistry, DeliveryMode, ResourceBro
 from .web import run_web_server
 from .malware import MalwareStore
 from .transports import AcquisitionPurpose, TransportResolver
+from .bootstrap import BootstrapOrchestrator, BootstrapStore
 
 
 def parser() -> argparse.ArgumentParser:
@@ -160,6 +161,13 @@ def parser() -> argparse.ArgumentParser:
     acquisition_fetch = acquisition_sub.add_parser("fetch")
     acquisition_fetch.add_argument("source_id"); acquisition_fetch.add_argument("--purpose", choices=[x.value for x in AcquisitionPurpose], default=AcquisitionPurpose.SYNCHRONIZATION.value)
     acquisition_fetch.add_argument("--path", required=True); acquisition_fetch.add_argument("--expected-sha256"); acquisition_fetch.add_argument("--expected-size", type=int); acquisition_fetch.add_argument("--dry-run", action="store_true")
+    bootstrap = acquisition_sub.add_parser("bootstrap")
+    bootstrap_sub = bootstrap.add_subparsers(dest="bootstrap_command", required=True)
+    bootstrap_plan = bootstrap_sub.add_parser("plan"); bootstrap_plan.add_argument("source_id"); bootstrap_plan.add_argument("--path", action="append", required=True)
+    bootstrap_start = bootstrap_sub.add_parser("start"); bootstrap_start.add_argument("source_id"); bootstrap_start.add_argument("--path", action="append", required=True)
+    bootstrap_status = bootstrap_sub.add_parser("status"); bootstrap_status.add_argument("job_id")
+    bootstrap_resume = bootstrap_sub.add_parser("resume"); bootstrap_resume.add_argument("job_id"); bootstrap_resume.add_argument("source_id")
+    bootstrap_report = bootstrap_sub.add_parser("report"); bootstrap_report.add_argument("job_id")
     resource = sub.add_parser("resource", help="resolve and deliver consumer resources")
     resource_sub = resource.add_subparsers(dest="resource_command", required=True)
     resource_search = resource_sub.add_parser("search")
@@ -313,6 +321,13 @@ def run(args: argparse.Namespace) -> dict | list:
             return malware_store.verify()
         return malware_store.rebuild()
     if args.command == "acquisition":
+        if args.acquisition_command == "bootstrap":
+            orchestrator = BootstrapOrchestrator(archive)
+            if args.bootstrap_command == "status": return orchestrator.store.read(args.job_id)
+            if args.bootstrap_command == "report": return orchestrator.store.report(args.job_id)
+            source = registry.get(args.source_id)
+            if args.bootstrap_command == "plan": return orchestrator.plan(source, args.path)
+            return orchestrator.start(source, args.path) if args.bootstrap_command == "start" else orchestrator.resume(source, args.job_id)
         resolver = TransportResolver()
         if args.acquisition_command == "transports":
             return resolver.capabilities()

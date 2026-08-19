@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from dataclasses import replace
 from enum import StrEnum
 from urllib.parse import urlparse
@@ -44,12 +45,12 @@ class TransportResolver:
         if transport == "bittorrent":
             executable = shutil.which(self.torrent_client)
             return {"transport": transport, "availability": "AVAILABLE" if executable else "UNAVAILABLE",
-                    "executable": executable, "resume": True, "integrity": ["piece-check", "rab-hash"],
+                    "executable": executable, "version": _version(executable), "resume": True, "integrity": ["piece-check", "rab-hash"],
                     "metadata": True}
         if transport == "rsync":
             executable = shutil.which("rsync")
             return {"transport": transport, "availability": "AVAILABLE" if executable else "UNAVAILABLE",
-                    "executable": executable, "resume": True, "integrity": ["transfer", "rab-hash"],
+                    "executable": executable, "version": _version(executable), "resume": True, "integrity": ["transfer", "rab-hash"],
                     "metadata": True}
         if transport in {"http", "https"}:
             return {"transport": transport, "availability": "AVAILABLE", "resume": True,
@@ -114,8 +115,8 @@ class TransportResolver:
 
     def fetch(self, acquisition, source, purpose: AcquisitionPurpose | str, *, path: str,
               expected_sha256: str | None = None, expected_size: int | None = None,
-              dry_run: bool = False) -> dict:
-        plan = self.plan(source, purpose)
+              dry_run: bool = False, plan: dict | None = None) -> dict:
+        plan = plan or self.plan(source, purpose)
         if dry_run:
             return {"plan": plan, "dry_run": True}
         if plan["state"] != TransportState.AVAILABLE.value:
@@ -130,5 +131,16 @@ class TransportResolver:
         if selected["transport"] == "rsync":
             return {"plan": plan, **acquisition.run_rsync(selected_source, scope=path, acquisition_context=context)}
         if selected["transport"] == "bittorrent":
-            return {"plan": plan, **acquisition.acquire_torrent(selected_source, Path(path), path, acquisition_context=context)}
+            return {"plan": plan, **acquisition.acquire_torrent(selected_source, path, path, acquisition_context=context)}
         raise PolicyError("selected transport has no acquisition adapter")
+
+
+def _version(executable: str | None) -> str | None:
+    if not executable:
+        return None
+    try:
+        result = subprocess.run([executable, "--version"], check=False, capture_output=True,
+                                text=True, timeout=5, shell=False)
+        return (result.stdout or result.stderr).splitlines()[0][:256] if result.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
