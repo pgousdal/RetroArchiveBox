@@ -23,3 +23,5 @@ rab_retro_http_enabled: false
 rab_clamav_enabled: false
 rab_clamav_freshclam_enabled: false
 rab_aria2_enabled: true
+rab_inbox_root: "{{ rab_root }}/inbox"
+rab_media_root: "{{ rab_root }}/media"

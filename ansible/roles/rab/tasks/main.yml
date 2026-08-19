@@ -104,6 +104,27 @@
     group: "{{ rab_group }}"
     mode: "0750"
 
+- name: Create private local ingest inbox categories
+  ansible.builtin.file:
+    path: "{{ rab_inbox_root }}/{{ item }}"
+    state: directory
+    owner: "{{ rab_user }}"
+    group: "{{ rab_group }}"
+    mode: "0750"
+  loop:
+    - downloads
+    - purchased
+    - personal
+    - unknown
+
+- name: Create private physical-media capture state directory
+  ansible.builtin.file:
+    path: "{{ rab_media_root }}"
+    state: directory
+    owner: "{{ rab_user }}"
+    group: "{{ rab_group }}"
+    mode: "0750"
+
 - name: Create disposable consumer state root
   ansible.builtin.file:
     path: "{{ rab_consumer_state_root }}"
