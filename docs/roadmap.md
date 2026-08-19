@@ -154,6 +154,27 @@ retro profile is explicitly bound trusted-LAN HTTP only; HTTP provides no
 confidentiality and must not be exposed publicly. No specific historical
 browser has been qualified or claimed. Museum-grade status remains NO.
 
+## M5 Malware Preservation & Analysis (2026-08-19)
+
+M5 adds the generic rebuildable malware evidence plane. Immutable observation
+sidecars retain object identity, scanner/product/version and signature
+metadata, execution environment, result, detections, coverage, provenance,
+warnings/errors, and raw reports. Scanners run only against temporary read-only
+copies; preservation masters remain byte-identical. `malware.sqlite3` is
+disposable and rebuildable. Aggregate states are `UNKNOWN`, `CLEAN_OBSERVED`,
+`SUSPICIOUS`, `MALWARE_DETECTED`, and `ANALYSIS_FAILED`, with independent
+observations preserved rather than majority-voted or collapsed.
+
+The generic command adapter and ClamAV normalization are implemented. ESET,
+Avast, Sophos, and Bitdefender are represented as truthful capability/license
+states only; no proprietary runtime qualification is claimed. CLI, read-only
+API, Resource Broker delivery-policy hooks, and zero-JavaScript RetroWeb status
+display are integrated. Bounded ZIP/TAR extraction protects against traversal,
+links, depth, count, and expanded-size abuse. Native-platform scanning,
+behavioral analysis, live malware, and automatic background scanning remain
+future work. `clamscan` was not installed here, so real ClamAV/EICAR
+qualification is **NOT PERFORMED**. Museum-grade status remains **NO**.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

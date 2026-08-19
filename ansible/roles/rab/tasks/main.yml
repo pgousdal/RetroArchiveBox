@@ -10,6 +10,13 @@
     state: present
     update_cache: true
 
+- name: Install optional Debian ClamAV command-line scanner
+  ansible.builtin.apt:
+    name: clamav
+    state: present
+    update_cache: true
+  when: rab_clamav_enabled
+
 - name: Create RAB system group
   ansible.builtin.group:
     name: "{{ rab_group }}"

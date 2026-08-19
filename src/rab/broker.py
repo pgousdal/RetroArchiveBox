@@ -95,13 +95,15 @@ class ConsumerContext:
     delivery_mode: DeliveryMode = DeliveryMode.MANIFEST_ONLY
     rights_context: str = "local-owner"
     machine_profile_id: str | None = None
+    malware_policy: str = "allow"
 
     def as_dict(self) -> dict:
         return {"consumer_id": self.consumer_id, "consumer_type": self.consumer_type,
                 "local": self.local, "purpose": self.purpose,
                 "delivery_mode": self.delivery_mode.value,
                 "rights_context": self.rights_context,
-                "machine_profile_id": self.machine_profile_id}
+                "machine_profile_id": self.machine_profile_id,
+                "malware_policy": self.malware_policy}
 
 
 @dataclass(frozen=True)
@@ -319,16 +321,21 @@ class ResourceBroker:
         value = json.loads(row[0]); return self._descriptor(value)
 
     def _descriptor(self, value: dict) -> dict:
+        from .malware import MalwareStore, aggregate
         objects = []
         for item in value.get("objects", []):
             sha = item.get("sha256", "").removeprefix("sha256:")
             try:
                 obj = self.archive.show("sha256:" + sha); available = (self.archive.object_dir(sha) / "master").is_file()
+                malware = MalwareStore(self.archive, read_only=self.read_only).status("sha256:" + sha)
                 objects.append({**item, "sha256": "sha256:" + sha, "size": obj["size"], "hashes": {k: obj[k] for k in ("sha256", "blake3", "sha1", "md5", "crc32")}, "available": available,
-                                "preservation_state": obj["preservation_state"], "provenance": [{"source": x["source"], "source_path": x["source_path"]} for x in obj.get("occurrences", [])]})
+                                "preservation_state": obj["preservation_state"], "provenance": [{"source": x["source"], "source_path": x["source_path"]} for x in obj.get("occurrences", [])],
+                                "malware_analysis": malware})
             except RabError:
                 objects.append({**item, "sha256": "sha256:" + sha, "available": False})
-        value = {**value, "objects": objects, "malware_analysis": {"status": value.get("malware_status", MalwareStatus.NOT_SCANNED.value)},
+        observations = [observation for x in objects for observation in x["malware_analysis"].get("observations", [])]
+        resource_state = aggregate([x["result"] for x in observations]).value if observations else "UNKNOWN"
+        value = {**value, "objects": objects, "malware_analysis": {"state": resource_state, "status": resource_state, "observations": observations},
                  "availability": self._availability(value, objects).value, "delivery_policy": self._delivery_policy(value)}
         value["preservation_objects"] = [x["sha256"] for x in objects]
         value["authority_assertions"] = self._authority(objects)
@@ -425,11 +432,19 @@ class ResourceBroker:
         rights = descriptor.get("rights", Rights.UNKNOWN.value); public = context.rights_context in {"public", "redistribution"}
         if public and rights != Rights.REDISTRIBUTABLE.value: return {"state": "RIGHTS_DENIED", "mode": context.delivery_mode.value}
         if not context.local and rights != Rights.REDISTRIBUTABLE.value: return {"state": "RESOLVED_LOCAL_ONLY", "mode": context.delivery_mode.value}
+        malware_state = descriptor.get("malware_analysis", {}).get("status", MalwareStatus.NOT_SCANNED.value)
+        if context.malware_policy == "deny-detected" and malware_state == "MALWARE_DETECTED":
+            return {"state": "POLICY_BLOCKED", "mode": context.delivery_mode.value, "reason": "malware detected"}
+        if context.malware_policy == "require-analysis" and malware_state in {"UNKNOWN", MalwareStatus.NOT_SCANNED.value}:
+            return {"state": "POLICY_BLOCKED", "mode": context.delivery_mode.value, "reason": "malware analysis required"}
         return {"state": "RESOLVED_AND_DELIVERABLE", "mode": context.delivery_mode.value}
 
     def pin(self, resource_id: str, *, context: ConsumerContext | None = None, authority: dict | None = None, dependencies: list[dict] | None = None) -> dict:
         resolved = self.resolve(resource_id, context=context, authority=authority)
-        if resolved["resolution"]["delivery"]["state"] == "RIGHTS_DENIED": raise BrokerError(ResolutionState.RIGHTS_DENIED, "delivery rights denied")
+        delivery_state = resolved["resolution"]["delivery"]["state"]
+        if delivery_state != "RESOLVED_AND_DELIVERABLE":
+            state = ResolutionState.RIGHTS_DENIED if delivery_state == "RIGHTS_DENIED" else ResolutionState.POLICY_BLOCKED
+            raise BrokerError(state, "delivery policy denied")
         value = {"schema": "rab-resource-manifest-v1", "resource_id": resource_id, "resolved_at": _now(),
                  "consumer_context": (context or ConsumerContext()).as_dict(), "objects": resolved["objects"],
                  "object_ids": resolved["preservation_objects"], "rights": resolved["rights"],

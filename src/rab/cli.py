@@ -18,6 +18,7 @@ from .redump import RedumpAuthority
 from .additional_authorities import AdditionalAuthority
 from .broker import ConsumerContext, ConsumerRegistry, DeliveryMode, ResourceBroker, ResourceKind
 from .web import run_web_server
+from .malware import MalwareStore
 
 
 def parser() -> argparse.ArgumentParser:
@@ -140,6 +141,16 @@ def parser() -> argparse.ArgumentParser:
     web.add_argument("--host", default="127.0.0.1")
     web.add_argument("--port", type=int, default=8080)
     web.add_argument("--retro-only", action="store_true")
+    malware = sub.add_parser("malware", help="inspect and operate malware analysis")
+    malware_sub = malware.add_subparsers(dest="malware_command", required=True)
+    malware_status = malware_sub.add_parser("status"); malware_status.add_argument("identifier", nargs="?")
+    malware_scanners = malware_sub.add_parser("scanners")
+    malware_scanner = malware_sub.add_parser("scanner"); malware_scanner.add_argument("scanner_id")
+    malware_scan = malware_sub.add_parser("scan"); malware_scan.add_argument("identifier"); malware_scan.add_argument("--scanner", required=True); malware_scan.add_argument("--timeout", type=int, default=300)
+    malware_observations = malware_sub.add_parser("observations"); malware_observations.add_argument("identifier", nargs="?")
+    malware_show = malware_sub.add_parser("show"); malware_show.add_argument("observation_id")
+    malware_sub.add_parser("verify")
+    malware_sub.add_parser("rebuild")
     resource = sub.add_parser("resource", help="resolve and deliver consumer resources")
     resource_sub = resource.add_subparsers(dest="resource_command", required=True)
     resource_search = resource_sub.add_parser("search")
@@ -275,6 +286,23 @@ def run(args: argparse.Namespace) -> dict | list:
     if args.command == "web":
         run_web_server(archive, registry, args.host, args.port, retro_only=args.retro_only)
         return {"outcome": "STOPPED"}
+    if args.command == "malware":
+        malware_store = MalwareStore(archive)
+        if args.malware_command == "status":
+            return malware_store.status(args.identifier) if args.identifier else malware_store.stats()
+        if args.malware_command == "scanners":
+            return malware_store.scanners_status()
+        if args.malware_command == "scanner":
+            return malware_store.scanner_status(args.scanner_id)
+        if args.malware_command == "scan":
+            return malware_store.scan(args.identifier, args.scanner, timeout=args.timeout)
+        if args.malware_command == "observations":
+            return malware_store.observations(args.identifier)
+        if args.malware_command == "show":
+            return malware_store.show(args.observation_id)
+        if args.malware_command == "verify":
+            return malware_store.verify()
+        return malware_store.rebuild()
     if args.command == "resource" or args.command == "resource-set" or args.command == "consumer":
         broker = ResourceBroker(archive, registry=ConsumerRegistry(Path(__file__).parents[2] / "config" / "consumers.json"))
         if args.command == "consumer":

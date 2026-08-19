@@ -142,7 +142,13 @@ class WebApplication:
         return 200, "text/html; charset=utf-8", self.page("Source", content, retro), None
 
     def resource(self, resource_id, retro):
-        item = self.broker.show(resource_id); prefix = "/retro" if retro else "/web"; content = '<dl><dt>Resource ID</dt><dd><code>' + _e(item["resource_id"]) + '</code></dd><dt>Name</dt><dd>' + _e(item.get("name")) + '</dd><dt>Version</dt><dd>' + _e(item.get("version")) + '</dd><dt>Kind</dt><dd>' + _e(item.get("kind")) + '</dd><dt>Platform</dt><dd>' + _e(item.get("platform")) + '</dd><dt>Availability</dt><dd>' + _e(item.get("availability")) + '</dd><dt>Rights</dt><dd>' + _e(item.get("rights")) + '</dd><dt>Malware analysis</dt><dd>' + _e(item.get("malware_analysis", {}).get("status")) + '</dd></dl>'
+        item = self.broker.show(resource_id); prefix = "/retro" if retro else "/web"; analysis = item.get("malware_analysis", {}); content = '<dl><dt>Resource ID</dt><dd><code>' + _e(item["resource_id"]) + '</code></dd><dt>Name</dt><dd>' + _e(item.get("name")) + '</dd><dt>Version</dt><dd>' + _e(item.get("version")) + '</dd><dt>Kind</dt><dd>' + _e(item.get("kind")) + '</dd><dt>Platform</dt><dd>' + _e(item.get("platform")) + '</dd><dt>Availability</dt><dd>' + _e(item.get("availability")) + '</dd><dt>Rights</dt><dd>' + _e(item.get("rights")) + '</dd><dt>Malware analysis</dt><dd>' + _e(analysis.get("status", "NOT_SCANNED")) + '</dd></dl>'
+        if analysis.get("observations"):
+            content += '<h3>Malware observations</h3><table><tr><th>Scanner</th><th>Result</th><th>Scanned</th><th>Detections</th></tr>'
+            for observation in analysis["observations"]:
+                detections = ', '.join(_e(x.get("name")) for x in observation.get("detections", [])) or '-'
+                content += '<tr><td>' + _e(observation.get("scanner_id")) + '</td><td>' + _e(observation.get("result")) + '</td><td>' + _e(observation.get("scanned_at")) + '</td><td>' + detections + '</td></tr>'
+            content += '</table>'
         content += '<h3>Objects</h3><table><tr><th>Role</th><th>Identity</th><th>Size</th><th>Hashes</th><th>Action</th></tr>'
         for obj in item.get("objects", []):
             oid = obj.get("sha256", ""); hashes = '<br />'.join(_e(k + ": " + str(v)) for k, v in obj.get("hashes", {}).items()); actions = ''

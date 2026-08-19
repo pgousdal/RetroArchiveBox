@@ -122,6 +122,36 @@ retro HTTP listener is disabled by default, explicitly bound by Ansible, and
 read-only for trusted-LAN use only. HTTP provides no confidentiality and must
 not be exposed to an untrusted network. Museum-grade status remains unclaimed.
 
+## M5 Malware Preservation & Analysis
+
+Malware analysis is evidence about preserved bytes, never a transformation of
+them. Each scan creates an immutable, versioned observation containing the
+object SHA-256, scanner/vendor/product/version data, signature metadata,
+execution environment, result, detections, coverage, provenance, and raw-result
+reference. JSON observation and raw-result sidecars are authoritative;
+`malware.sqlite3` is disposable and rebuildable. Scanner processes receive a
+temporary read-only copy under `malware-analysis`, never an object-store master.
+
+The generic adapter contract provides capability detection, bounded list-based
+execution, timeout handling, safe output normalization, and destructive-option
+rejection. ClamAV is implemented for normal Debian `clamscan` use. ESET, Avast,
+Sophos, and Bitdefender adapters report truthful availability or license/install
+limitations; no proprietary software or credentials are included. Aggregate
+states are `UNKNOWN`, `CLEAN_OBSERVED`, `SUSPICIOUS`, `MALWARE_DETECTED`, and
+`ANALYSIS_FAILED`; independent observations remain visible and clean means only
+observed clean under specified evidence.
+
+`rab malware` provides status, scanner capability, scan, observation, verify,
+and rebuild commands. Read-only API routes expose scanner and observation
+metadata, and Resource Broker descriptors include malware state/observations.
+Consumers may use `allow`, `deny-detected`, or `require-analysis` delivery
+policy without changing rights policy. RetroWeb displays escaped detection
+names and status without JavaScript and never grants a denied download.
+ZIP/TAR extraction is optional and bounded against traversal, links, file-count,
+size, and depth abuse. Native-platform scanners and behavioral analysis remain
+future disposable-environment work. No real ClamAV qualification was performed
+because `clamscan` was unavailable; no live malware was acquired.
+
 ## M4.1 authority assertions
 
 `rab authority import FILE.dat` preserves the original TOSEC DAT through M1,

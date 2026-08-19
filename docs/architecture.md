@@ -68,6 +68,57 @@ weaken the authenticated API or reverse-proxy profile. Intended compatibility
 includes conservative Netscape, IE, Amiga, Atari, classic Mac, and text-browser
 families, but no vintage client is claimed qualified until actually tested.
 
+## Malware Preservation & Analysis (M5)
+
+Malware analysis is a separate evidence plane:
+
+```text
+immutable preservation master
+        |
+        +--> disposable read-only analysis copy --> scanner adapter
+        |                                             |
+        +--> immutable observation + raw report <-----+
+```
+
+`MalwareObservation` is versioned as `rab-malware-observation-v1`. It retains
+object SHA-256, observation identity, scanner/vendor/product, scanner and
+engine versions, signature version/date, timestamp, execution environment,
+method, result, detections, coverage, warnings/errors, provenance, and a raw
+result reference. Observations are never updated in place; later scans create
+new sidecars. `malware.sqlite3` is only a derived index and `rab malware
+rebuild` reconstructs it from observation sidecars/raw evidence.
+
+The generic `ScannerAdapter` contract exposes capability, invocation, timeout,
+output parsing, and normalized results. `CommandScanner` uses argument lists,
+`shell=False`, bounded timeouts, and rejects destructive/quarantine/repair
+options. The scanner target is copied from a verified master into a disposable
+workspace, made read-only, and removed after execution. No scanner receives an
+object-store path or write access to a master. Unknown output is
+`INCONCLUSIVE`/`ERROR`, never clean.
+
+ClamAV is the first operational Linux adapter (`clamscan`, exit/status and
+`FOUND` output normalization). ESET, Avast, Sophos, and Bitdefender are generic
+commercial adapter identities with capability detection; products may return
+`LICENSE_REQUIRED` or `SUPPORTED_NOT_INSTALLED`. RAB does not bypass
+licensing, install proprietary binaries, or embed credentials. The default
+policy is preserve-and-record with no automatic background scan or quarantine.
+
+Aggregate state is deterministic and evidence-preserving: any `DETECTED` is
+`MALWARE_DETECTED`; otherwise `SUSPICIOUS` or `INCONCLUSIVE` is `SUSPICIOUS`;
+clean with no failure is `CLEAN_OBSERVED`; only errors/unsupported observations
+are `ANALYSIS_FAILED`; no observations is `UNKNOWN`. Clean means observed clean
+under named scanner/signature evidence, not malware-free. Broker delivery may
+use `allow`, `deny-detected`, or `require-analysis`; rights remain independent,
+and detection never deletes, hides, or changes preservation identity.
+
+Container scanning records `container-only` coverage. Optional ZIP/TAR
+extraction is outside preservation storage and rejects absolute/traversal and
+backslash paths, links/special files, excessive depth, file count, and expanded
+size. It does not imply every nested or unsupported format was examined. Future
+Amiga, DOS, Windows, Mac, and other native scanners consume Resource Broker
+materialized copies in disposable emulators/VMs; masters are never writable or
+mounted into those environments.
+
 ## Consumer Resource Broker v1
 
 The broker is a derived consumer plane above M1 preservation and the M2/M3

@@ -20,3 +20,4 @@ rab_web_enabled: false
 rab_retro_http_bind: 127.0.0.1
 rab_retro_http_port: 8081
 rab_retro_http_enabled: false
+rab_clamav_enabled: false
