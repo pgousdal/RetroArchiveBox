@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/physical-ingest-plan-v1.json",
+  "title": "RAB Physical Ingest Plan v1",
+  "type": "object",
+  "required": ["schema", "version", "candidate", "inspection", "capture", "verification", "provenance", "rights", "requires_confirmation"],
+  "properties": {
+    "schema": {"const": "rab-physical-ingest-plan-v1"},
+    "version": {"const": 1},
+    "candidate": {"type": "object"},
+    "inspection": {"type": "object"},
+    "capture": {"type": "object"},
+    "verification": {"type": "object"},
+    "provenance": {"type": "string"},
+    "rights": {"type": "string"},
+    "analysis": {"type": "object"},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "requires_confirmation": {"const": true}
+  },
+  "additionalProperties": true
+}

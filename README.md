@@ -124,6 +124,23 @@ manifests, occurrences, and preservation events remain the authoritative
 records. The API and RetroWeb expose only safe logical inbox/job information,
 not private filesystem paths or purchase metadata.
 
+## M6.9 Unified physical media ingest
+
+`rab media ingest --dry-run` discovers optical, removable block, and
+Greaseweazle candidates, inspects them, and prints a unified preservation plan
+without capture or mutation. `rab media ingest --candidate ID` routes the
+confirmed operation to the existing adapter; capture still requires explicit
+confirmation. `--batch` groups multiple medium jobs into an operational
+session. Block devices remain whole-device and fail-closed, optical mixed-mode
+media remains track-aware/unsupported when M6.5 cannot safely capture it, and
+flux capture remains SCP raw evidence with explicit drive/profile selection.
+
+The operator workflow deliberately asks rather than guesses when safety or
+media selection is ambiguous. Candidate/session status is read-only through
+the API and `/retro/physical-media`. Physical qualification is fixture-only;
+real optical, USB, Greaseweazle, and Debian 13 hardware qualification remain
+unperformed.
+
 ## Retro-Compatible Web v1
 
 RAB provides an optional server-rendered read-only web interface through

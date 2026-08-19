@@ -345,6 +345,27 @@ Auto-Detection. Later hardware qualification, contained-object discovery,
 deeper optical qualification, tape/cartridge adapters, and public derived
 products remain open. Museum-grade status remains **NO**.
 
+## M6.9 Unified Physical Media Operator UX / Auto-Detection (2026-08-19)
+
+M6.9 adds a thin unified discovery, plan, confirmation, routing, reporting,
+and batch-session layer over the existing optical, block-device, and
+Greaseweazle managers. It normalizes candidates, keeps block safety
+fail-closed, requires explicit selection for conservative sources, supports
+dry-run and machine-readable plans, preserves duplicate physical occurrences,
+and exposes read-only API/RetroWeb status. It does not rewrite any technical
+capture engine or add a daemon/framework.
+
+Fixture qualification covers optical/block/flux candidate models, no/ambiguous
+candidates, unsafe block rejection, routing, dry-run non-mutation, explicit
+confirmation, operator metadata, duplicate physical occurrences, batch
+sessions, API redaction, and RetroWeb status. The local environment has no
+qualified physical optical drive, removable USB medium, or Greaseweazle V4.1;
+real optical, USB, Amiga/C64, Greaseweazle, and Debian 13 physical-host
+qualification are **NOT PERFORMED**. Remaining work includes physical
+qualification command coverage, contained-object analysis, deeper optical
+capture, tape/cartridge adapters, and public derived products. Museum-grade
+status remains **NO**.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

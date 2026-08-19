@@ -26,6 +26,7 @@ from .products import ProductBuilder
 from .local_ingest import IngestManager, ProvenanceClass, WatchedInboxManager
 from .media import MediaManager, OpticalManager
 from .flux import FluxManager, FloppyProfile, VerificationPolicy
+from .physical import PhysicalMediaOrchestrator
 from .tree_ingest import TreeIngestManager
 
 
@@ -206,6 +207,8 @@ def parser() -> argparse.ArgumentParser:
     media_capture = media_sub.add_parser("capture"); media_capture.add_argument("device"); media_capture.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.ORIGINAL_PHYSICAL_OWNED.value); media_capture.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); media_capture.add_argument("--notes", default="")
     media_sub.add_parser("jobs")
     media_show = media_sub.add_parser("show"); media_show.add_argument("job_id")
+    physical_ingest = media_sub.add_parser("ingest", help="unified safe physical-media ingest")
+    physical_ingest.add_argument("--candidate"); physical_ingest.add_argument("--verification", choices=["fast", "standard", "archival"], default="standard"); physical_ingest.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.ORIGINAL_PHYSICAL_OWNED.value); physical_ingest.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); physical_ingest.add_argument("--profile", choices=[x.value for x in FloppyProfile]); physical_ingest.add_argument("--drive"); physical_ingest.add_argument("--tracks"); physical_ingest.add_argument("--title"); physical_ingest.add_argument("--vendor"); physical_ingest.add_argument("--collection"); physical_ingest.add_argument("--volume"); physical_ingest.add_argument("--notes", default=""); physical_ingest.add_argument("--batch", action="store_true"); physical_ingest.add_argument("--max-media", type=int); physical_ingest.add_argument("--dry-run", action="store_true"); physical_ingest.add_argument("--non-interactive", action="store_true"); physical_ingest.add_argument("--confirm", action="store_true"); physical_ingest.add_argument("--json", action="store_true")
     optical = media_sub.add_parser("optical")
     optical_sub = optical.add_subparsers(dest="optical_command", required=True)
     optical_sub.add_parser("devices")
@@ -418,6 +421,9 @@ def run(args: argparse.Namespace) -> dict | list:
             return watched.watch(interval_seconds=args.interval, once=args.once or not args.loop, max_cycles=args.max_cycles)
         return manager.scan_inbox(args.category)
     if args.command == "media":
+        if args.media_command == "ingest":
+            metadata = {key: value for key, value in {"title": args.title, "vendor": args.vendor, "collection": args.collection, "volume": args.volume, "notes": args.notes}.items() if value not in (None, "")}
+            return PhysicalMediaOrchestrator(archive).ingest(candidate_id=args.candidate, verification=args.verification, provenance=args.provenance, rights=args.rights, profile=args.profile, drive=args.drive, tracks=args.tracks, metadata=metadata, dry_run=args.dry_run, confirm=args.confirm, interactive=not args.non_interactive, batch=args.batch, max_media=args.max_media)
         if args.media_command == "optical":
             manager = OpticalManager(archive)
             if args.optical_command == "devices": return manager.devices()

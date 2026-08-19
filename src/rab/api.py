@@ -22,6 +22,7 @@ from .products import ProductBuilder
 from .local_ingest import IngestManager, WatchedInboxManager
 from .media import MediaManager, OpticalManager
 from .flux import FluxManager
+from .physical import PhysicalMediaOrchestrator
 from .tree_ingest import TreeIngestManager
 
 
@@ -91,6 +92,10 @@ class CatalogueAPI:
         if route == "/api/v1/media/flux/jobs": return 200, [self._public_flux_job(x) for x in flux.jobs()]
         m = re.fullmatch(r"/api/v1/media/flux/jobs/([0-9a-f]+)", route)
         if m: return 200, self._public_flux_job(flux.show(m.group(1)))
+        physical = PhysicalMediaOrchestrator(self.catalogue.archive)
+        if route == "/api/v1/media/status": return 200, {"candidates": physical.public_candidates(), "sessions": physical.public_sessions()}
+        if route == "/api/v1/media/candidates": return 200, physical.public_candidates()
+        if route == "/api/v1/media/sessions": return 200, physical.public_sessions()
         if route.startswith("/api/v1/products/"):
             product_path = unquote(route.removeprefix("/api/v1/products/"))
             matches = [x for x in ProductBuilder(self.catalogue.archive, identity=identity).list() if x.get("path_id") == product_path]

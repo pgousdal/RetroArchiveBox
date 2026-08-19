@@ -166,7 +166,7 @@ class MediaManager:
     def __init__(self, archive, *, adapter: MediaAdapter | None = None):
         self.archive = archive; self.adapter = adapter or BlockDeviceAdapter(); self.root = archive.root / "media"; self.jobs_root = self.root / "jobs"
 
-    def devices(self): return self.adapter.devices() if isinstance(self.adapter, BlockDeviceAdapter) else []
+    def devices(self): return self.adapter.devices() if hasattr(self.adapter, "devices") else []
     def inspect(self, device): return self.adapter.inspect(device)
     def jobs(self):
         return [json.loads(x.read_text(encoding="utf-8")) for x in sorted(self.jobs_root.glob("*.json"))] if self.jobs_root.is_dir() else []

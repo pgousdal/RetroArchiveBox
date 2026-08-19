@@ -273,6 +273,51 @@ non-root `rab` account, has no network requirement, uses `ProtectSystem`,
 configurable interval/stability/minimum-age settings. No upload endpoint or
 message broker is introduced.
 
+## Unified Physical Media Operator UX (M6.9)
+
+`PhysicalMediaOrchestrator` is a thin operator/session layer above the three
+existing technical owners:
+
+```text
+candidate discovery -> safe selection -> inspect/plan -> explicit confirmation
+        -> OpticalManager / MediaManager / FluxManager
+        -> existing ingest, identity, authority, malware, catalogue paths
+```
+
+Candidates are normalized into stable descriptors containing adapter kind,
+display description, presence, safety, confidence, limitations, and suggested
+action. Public API/Web descriptors omit device paths. Optical drives may be
+auto-selected for planning when one inserted medium is unambiguous; block
+devices and Greaseweazle candidates require explicit selection. No discovery
+path captures automatically. Root/system/non-removable block candidates are
+rejected using the existing M6.6 safety rules.
+
+Plans use `rab-physical-ingest-plan-v1` and retain candidate, inspection,
+capture representation/method, expected size, verification policy,
+provenance, rights, analysis flags, limitations, and confirmation requirement.
+`--dry-run` stops after discovery/inspection/planning and does not create
+session, job, staging, or preservation state. Non-interactive capture requires
+an explicit candidate and confirmation. RAB should ask only for information it
+cannot safely derive; automation must not guess when preservation or safety is
+ambiguous.
+
+Sessions under `physical-ingest/sessions` group operational medium jobs and
+record counts, duplicates, warnings, failures, bytes, collection metadata, and
+host. They are not preservation identity. Each adapter invocation creates its
+own underlying capture job, so duplicate physical media reuse a byte-identical
+CAS master while retaining separate capture/occurrence/provenance evidence.
+Batch mode re-inspects the selected candidate for every medium and prompts for
+remove/insert confirmation; Ctrl-C marks the session interrupted without
+rolling back completed preservation.
+
+Completion reports distinguish preservation, verification, identity,
+authority, malware, and catalogue states. Missing authority databases produce
+`NOT_CHECKED`, not failure; raw flux reports container-only malware coverage;
+downstream analysis warnings never remove a preserved master. The read-only
+API exposes `/api/v1/media/status`, `/candidates`, and `/sessions`; RetroWeb
+exposes `/retro/physical-media`. No remote capture endpoint or admin control
+exists.
+
 ## Optical Media Ingest (M6.5)
 
 Optical preservation distinguishes a physical medium, inspection/layout

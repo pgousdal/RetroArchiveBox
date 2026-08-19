@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/physical-ingest-session-v1.json",
+  "title": "RAB Physical Ingest Session v1",
+  "type": "object",
+  "required": ["schema", "session_id", "state", "media", "media_count"],
+  "properties": {
+    "schema": {"const": "rab-physical-ingest-session-v1"},
+    "session_id": {"type": "string"},
+    "state": {"enum": ["ACTIVE", "COMPLETED", "INTERRUPTED"]},
+    "media": {"type": "array"},
+    "media_count": {"type": "integer", "minimum": 0},
+    "successful_captures": {"type": "integer", "minimum": 0},
+    "duplicates": {"type": "integer", "minimum": 0},
+    "bytes_preserved": {"type": "integer", "minimum": 0}
+  },
+  "additionalProperties": true
+}
