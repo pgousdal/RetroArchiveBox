@@ -107,6 +107,12 @@ reads, so repeat verification compares decoded and track evidence rather than
 requiring equal raw hashes. Greaseweazle V4.1 and real floppy qualification
 are not performed until hardware is available.
 
+Flux capture jobs also retain physical-medium IDs, platform hints, first/repeat
+attempt metadata, capture hashes, and repeat comparisons. A nonzero tool result
+with useful partial SCP output is preserved as `PARTIAL` with warnings rather
+than deleted or called complete; differing repeat captures remain separate
+evidence. Platform hints do not create platform identity.
+
 ## M6.8 Watched inbox ingest
 
 The opt-in `rab-inbox-watch.service` continuously reconciles configured inboxes

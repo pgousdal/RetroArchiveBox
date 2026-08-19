@@ -268,6 +268,7 @@ class CatalogueAPI:
     @staticmethod
     def _public_flux_job(job):
         value = {**job}
+        value.pop("operator_notes", None)
         if isinstance(value.get("capture"), dict):
             value["capture"] = {k: v for k, v in value["capture"].items() if k not in {"command", "tool_output"}}
         if isinstance(value.get("adapter"), dict):

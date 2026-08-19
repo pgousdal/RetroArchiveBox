@@ -319,6 +319,10 @@ operator UX/auto-detection, real hardware qualification, deeper optical
 qualification, recursive filesystem analysis, tape/cartridge capture, and
 public derived-product publication. Museum-grade status remains **NO**.
 
+The flux foundation retains physical-medium/platform hints, repeat-attempt
+comparisons, and useful partial SCP captures without changing the
+software/fixture-only qualification boundary.
+
 ## M6.8 Watched Inbox Production Service (2026-08-19)
 
 M6.8 turns the existing local inbox scan into an opt-in periodic service. It

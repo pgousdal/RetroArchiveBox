@@ -26,6 +26,7 @@ from .media import MediaAdapter
 class FluxOutcome(StrEnum):
     COMPLETE = "COMPLETE"
     COMPLETE_WITH_WARNINGS = "COMPLETE_WITH_WARNINGS"
+    PARTIAL = "PARTIAL"
     FAILED = "FAILED"
     TOOL_MISSING = "TOOL_MISSING"
     TIMEOUT = "TIMEOUT"
@@ -134,16 +135,34 @@ class GreaseweazleAdapter(MediaAdapter):
         if any(token in {"write", "erase", "clean", "update"} for token in command):
             raise PolicyError("Greaseweazle write operation rejected")
         destination.parent.mkdir(parents=True, exist_ok=True)
-        result = self._invoke(command, timeout=timeout)
-        if result.returncode or not destination.is_file():
-            destination.unlink(missing_ok=True)
-            raise RabError("Greaseweazle flux capture failed")
+        try:
+            result = self._invoke(command, timeout=timeout)
+        except FluxTimeoutError:
+            if destination.is_file() and destination.stat().st_size:
+                return {"command": command, "tool": self.executable, "format": "scp", "bytes": destination.stat().st_size,
+                        "drive": drive, "tracks": tracks, "revolutions": revolutions, "profile": profile,
+                        "read_errors": ["capture timed out after partial output"], "weak_track_observations": [],
+                        "capture_mode_read_only": True, "hardware_write_protection": "unknown", "outcome": FluxOutcome.PARTIAL.value,
+                        "tool_output": "capture timed out"}
+            raise
+        if result.returncode:
+            if destination.is_file() and destination.stat().st_size:
+                output = (result.stdout or "") + ("\n" + result.stderr if result.stderr else "")
+                return {"command": command, "tool": self.executable, "format": "scp", "bytes": destination.stat().st_size,
+                        "drive": drive, "tracks": tracks, "revolutions": revolutions, "profile": profile,
+                        "read_errors": [output[-2000:] or "Greaseweazle returned failure after partial output"],
+                        "weak_track_observations": [], "capture_mode_read_only": True,
+                        "hardware_write_protection": "unknown", "outcome": FluxOutcome.PARTIAL.value,
+                        "tool_output": output[-8192:]}
+            destination.unlink(missing_ok=True); raise RabError("Greaseweazle flux capture failed")
+        if not destination.is_file(): raise RabError("Greaseweazle produced no flux capture")
         output = (result.stdout or "") + ("\n" + result.stderr if result.stderr else "")
         weak = [line.strip() for line in output.splitlines() if re.search(r"weak|unstable|missing|error|anomal", line, re.I)]
         return {"command": command, "tool": self.executable, "format": "scp", "bytes": destination.stat().st_size,
                 "drive": drive, "tracks": tracks, "revolutions": revolutions, "profile": profile,
                 "read_errors": weak, "weak_track_observations": weak, "capture_mode_read_only": True,
-                "hardware_write_protection": "unknown", "tool_output": output[-8192:]}
+                "hardware_write_protection": "unknown", "outcome": FluxOutcome.COMPLETE.value,
+                "tool_output": output[-8192:]}
 
 
 def _validate_device(device):
@@ -191,28 +210,34 @@ class FluxManager:
     def profiles(self): return {key: dict(value) for key, value in FLOPPY_PROFILES.items()}
     def jobs(self): return [json.loads(x.read_text(encoding="utf-8")) for x in sorted(self.jobs_root.glob("*.json"))] if self.jobs_root.is_dir() else []
     def show(self, job_id):
+        if not re.fullmatch(r"[0-9a-f]+", job_id): raise PolicyError("invalid flux job id")
         path = self.jobs_root / (job_id + ".json")
         if not path.is_file(): raise RabError("flux job not found")
         return json.loads(path.read_text(encoding="utf-8"))
 
-    def capture(self, device, *, physical_medium_id=None, profile=FloppyProfile.UNKNOWN.value, drive="A",
+    def capture(self, device, *, physical_medium_id=None, repeat_of=None, platform_hint=None, profile=FloppyProfile.UNKNOWN.value, drive="A",
                 tracks="c=0-79:h=0-1", sides="0,1", revolutions=3, rights=Rights.UNKNOWN,
                 provenance=ProvenanceClass.UNKNOWN, notes="", verification=VerificationPolicy.STANDARD):
         if profile not in FLOPPY_PROFILES: raise PolicyError("unknown floppy profile")
         self.jobs_root.mkdir(parents=True, exist_ok=True); job_id = uuid.uuid4().hex
         stage = self.root / "staging" / job_id / "capture.scp"
-        job = {"schema": "rab-flux-capture-job-v1", "job_id": job_id, "physical_medium_id": physical_medium_id or "physical-floppy:" + uuid.uuid4().hex,
+        job = {"schema": "rab-flux-capture-job-v1", "job_id": job_id, "physical_medium_id": physical_medium_id or "physical-floppy:" + uuid.uuid4().hex, "capture_attempt": "REPEAT" if repeat_of else "FIRST", "repeat_of": repeat_of, "platform_hint": platform_hint,
                "adapter_id": self.adapter.adapter_id, "state": IngestJobState.CAPTURING.value, "created_at": _now(),
                "selected_drive": drive, "expected_media_profile": profile, "sides": sides, "track_range": tracks,
-               "revolutions": revolutions, "capture_format": "scp", "rab_capture_read_only": True,
+               "revolutions": revolutions, "capture_format": "scp", "representation_kind": "FLUX_CAPTURE", "rab_capture_read_only": True,
                "hardware_write_protection": "unknown", "verification": {"policy": str(verification), "status": "NOT_PERFORMED"},
-               "derived_representation_ids": [], "authority_observations": [], "malware_analysis": {"coverage": "CONTAINER_ONLY"}, "errors": []}
+                "derived_representation_ids": [], "authority_observations": [], "malware_analysis": {"coverage": "RAW_CONTAINER_ONLY"}, "provenance_classification": ProvenanceClass(provenance).value, "rights": Rights(rights).value, "operator_notes": notes, "errors": []}
         self.archive._atomic_json(self.jobs_root / (job_id + ".json"), job)
         try:
             job["adapter"] = self.adapter.info(device); job["capture"] = self.adapter.capture(device, stage, drive=drive, tracks=tracks, revolutions=revolutions, profile=profile)
-            job["inventory"] = inventory_image(stage); job["hashes"] = hash_file(stage); job["state"] = IngestJobState.INGESTING.value
+            job["hashes"] = hash_file(stage); job["state"] = IngestJobState.INGESTING.value
+            if repeat_of:
+                previous = self.show(repeat_of)
+                previous_sha = previous.get("hashes", {}).get("sha256")
+                job["repeat_comparison"] = {"repeat_of": repeat_of, "byte_identical": previous_sha == job["hashes"]["sha256"], "raw_capture_hashes_compared": bool(previous_sha), "differing_capture_preserved": previous_sha != job["hashes"]["sha256"]}
             result = IngestManager(self.archive).ingest_staged(stage, category="personal", rights=rights, provenance=provenance, notes=notes, original_path=device, logical_path=job_id + ".scp")
-            job.update({"object_id": result["object_id"], "ingest_job_id": result["job_id"], "state": FluxOutcome.COMPLETE.value,
+            capture_outcome = job["capture"].get("outcome", FluxOutcome.COMPLETE.value)
+            job.update({"object_id": result["object_id"], "ingest_job_id": result["job_id"], "state": FluxOutcome.COMPLETE_WITH_WARNINGS.value if capture_outcome == FluxOutcome.PARTIAL.value else FluxOutcome.COMPLETE.value,
                         "verification": self._verification(verification, job["capture"]), "completed_at": _now()})
         except FluxTimeoutError as exc:
             job.update({"state": FluxOutcome.TIMEOUT.value, "errors": [str(exc)]}); raise
@@ -228,6 +253,8 @@ class FluxManager:
     def _verification(policy, capture):
         policy = VerificationPolicy(policy).value
         checks = ["capture_completed", "expected_track_range"]
+        if capture.get("outcome") == FluxOutcome.PARTIAL.value:
+            return {"policy": policy, "status": "PARTIAL", "checks": ["partial_capture_preserved"], "limitations": ["capture did not complete; do not treat as complete disk"]}
         if policy == "fast": return {"policy": policy, "status": "PASS", "checks": checks, "raw_byte_identity": "single_capture_only"}
         return {"policy": policy, "status": "LIMITED", "checks": checks, "semantic_consistency": "NOT_PERFORMED",
                 "raw_byte_identity": "not_a_repeat_read_rule", "limitations": "repeat capture requires operator workflow"}

@@ -524,6 +524,15 @@ C64 D64/G64 attempts, failure recovery, and provenance. This software and
 fixture qualification does not claim real Greaseweazle V4.1, Amiga, C64, or
 Debian 13 hardware execution.
 
+Flux capture jobs retain physical-medium identifiers, platform hints, capture
+attempt/`repeat_of` relationships, exact universal hashes, and byte-identical
+or differing repeat evidence. Useful partial SCP output from a failed or timed
+out read is preserved as `PARTIAL`/warning evidence when bytes exist; no
+partial capture is reported as a complete disk. The operator may later choose
+which evidence to use, but RAB does not discard or silently select a canonical
+read. Rights and physical provenance remain independent, and flux malware
+coverage is `RAW_CONTAINER_ONLY` until a derived representation is analyzed.
+
 ## Consumer Resource Broker v1
 
 The broker is a derived consumer plane above M1 preservation and the M2/M3
