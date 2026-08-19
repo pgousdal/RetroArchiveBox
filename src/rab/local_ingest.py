@@ -84,17 +84,17 @@ class IngestManager:
 
     def ingest_file(self, path: Path, *, category: str = "unknown", rights: Rights = Rights.UNKNOWN,
                     provenance: ProvenanceClass | str = ProvenanceClass.UNKNOWN, notes: str = "",
-                    source_description: str | None = None) -> dict:
+                    source_description: str | None = None, logical_path: str | None = None) -> dict:
         if category not in self.CATEGORIES: raise PolicyError("unknown local inbox category")
         source = self._validate_source(path); provenance = ProvenanceClass(provenance); self.initialize()
         job_id = uuid.uuid4().hex; stage = self.root / "staging" / job_id; stage.mkdir(parents=True, exist_ok=False)
         staged = stage / source.name; shutil.copyfile(source, staged); staged.chmod(0o440)
         return self.ingest_staged(staged, job_id=job_id, category=category, rights=rights, provenance=provenance,
-                                  notes=notes, source_description=source_description, original_path=str(source))
+                                  notes=notes, source_description=source_description, original_path=str(source), logical_path=logical_path)
 
     def ingest_staged(self, staged: Path, *, job_id: str | None = None, category: str = "unknown",
                       rights: Rights = Rights.UNKNOWN, provenance: ProvenanceClass | str = ProvenanceClass.UNKNOWN,
-                      notes: str = "", source_description: str | None = None, original_path: str | None = None) -> dict:
+                      notes: str = "", source_description: str | None = None, original_path: str | None = None, logical_path: str | None = None) -> dict:
         self.initialize(); staged = self._validate_source(staged); job_id = job_id or uuid.uuid4().hex; provenance = ProvenanceClass(provenance)
         job = {"schema": "rab-local-ingest-job-v1", "job_id": job_id, "created_at": _now(), "started_at": _now(),
                "completed_at": None, "state": IngestJobState.INGESTING.value, "source_type": "local-file",
@@ -106,7 +106,11 @@ class IngestManager:
         with self.archive.db() as db:
             existing = db.execute("SELECT sha256 FROM objects WHERE sha256=?", (job["hashes"]["sha256"],)).fetchone()
         job["duplicate"] = bool(existing); source_id = "local-inbox:" + category
-        source_path = category + "/" + Path(original_path or staged.name).name
+        logical = logical_path or Path(original_path or staged.name).name
+        relative = Path(logical)
+        if relative.is_absolute() or ".." in relative.parts or "\\" in logical or "\x00" in logical:
+            raise PolicyError("unsafe local ingest logical path")
+        source_path = category + "/" + logical
         try:
             result = self.archive.ingest(IngestRequest(staged, source_id, source_path, rights,
                 "application/octet-stream", staged.name, None, provenance.value,

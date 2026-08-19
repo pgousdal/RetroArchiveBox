@@ -107,18 +107,27 @@ class BlockDeviceAdapter(MediaAdapter):
 
     def _lsblk(self) -> list[dict]:
         try:
-            result = subprocess.run(["lsblk", "--json", "--bytes", "--output", "NAME,KNAME,PATH,TYPE,SIZE,RM,RO,MOUNTPOINTS,MODEL,SERIAL"], check=True, capture_output=True, text=True, timeout=15, shell=False)
+            result = subprocess.run(["lsblk", "--json", "--bytes", "--output", "NAME,KNAME,PATH,TYPE,SIZE,RM,RO,TRAN,FSTYPE,LABEL,UUID,PARTTYPE,PKNAME,MOUNTPOINTS,MODEL,SERIAL"], check=True, capture_output=True, text=True, timeout=15, shell=False)
             return json.loads(result.stdout).get("blockdevices", [])
         except (OSError, subprocess.SubprocessError, ValueError) as exc:
             raise RabError("unable to enumerate block devices") from exc
 
     def devices(self) -> list[dict]:
-        return [x for x in self._lsblk() if x.get("type") in {"disk", "loop"}]
+        devices = [x for x in self._lsblk() if x.get("type") in {"disk", "loop"}]
+        root = self._root_source(); swap = self._swap_devices()
+        for device in devices:
+            path = device.get("path", "")
+            protected = bool(root and (path == root or root.startswith(path))) or path in swap
+            device["removable"] = bool(device.get("rm"))
+            device["safety"] = "PROTECTED" if protected else "SAFE_CANDIDATE" if device["removable"] else "NON_REMOVABLE"
+            device["source_reported_read_only"] = bool(device.get("ro"))
+        return devices
 
     def inspect(self, device: str) -> dict:
         if not device.startswith("/dev/") or any(x in device for x in ("\x00", "\n", "\r")): raise PolicyError("invalid block device path")
         matches = [x for x in self.devices() if x.get("path") == device]
         if not matches: raise PolicyError("device is not an enumerated whole block device")
+        if matches[0].get("safety") == "PROTECTED": raise PolicyError("device is protected by active system usage")
         return matches[0]
 
     def _root_source(self) -> str | None:
@@ -127,11 +136,18 @@ class BlockDeviceAdapter(MediaAdapter):
             return result.stdout.strip() or None
         except OSError: return None
 
+    def _swap_devices(self) -> set[str]:
+        try:
+            result = subprocess.run(["swapon", "--noheadings", "--raw", "--output", "NAME"], check=False, capture_output=True, text=True, timeout=5, shell=False)
+            return {x.strip() for x in result.stdout.splitlines() if x.strip()}
+        except OSError: return set()
+
     def capture(self, device: str, destination: Path, *, timeout: int = 86400) -> dict:
         info = self.inspect(device); root_source = self._root_source()
         if root_source and (device == root_source or (root_source.startswith(device) and root_source[len(device):len(device) + 1] in {"p", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"})):
             raise PolicyError("refusing to capture the active root device")
         destination = destination.resolve(); destination.parent.mkdir(parents=True, exist_ok=True)
+        if info.get("safety") != "SAFE_CANDIDATE": raise PolicyError("device is not a safe removable candidate")
         command = ["dd", f"if={device}", f"of={destination}", "bs=4M", "iflag=fullblock", "status=none"]
         try:
             result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=timeout, shell=False)
@@ -139,7 +155,10 @@ class BlockDeviceAdapter(MediaAdapter):
             destination.unlink(missing_ok=True); raise RabError("device capture timed out") from exc
         if result.returncode:
             destination.unlink(missing_ok=True); raise RabError("device capture failed: " + (result.stderr or "").strip()[-1000:])
-        return {"device": device, "device_info": info, "capture_tool": "dd", "command": command, "bytes": destination.stat().st_size}
+        actual = destination.stat().st_size; expected = int(info.get("size") or 0)
+        if expected and actual != expected:
+            destination.unlink(missing_ok=True); raise RabError(f"whole-device capture size mismatch: expected {expected}, got {actual}")
+        return {"device": device, "device_info": info, "capture_tool": "dd", "command": command, "bytes": actual, "expected_bytes": expected or None, "source_reported_read_only": info.get("source_reported_read_only", False), "capture_mode_read_only": True}
 
 
 class MediaManager:
@@ -155,13 +174,17 @@ class MediaManager:
         if not path.is_file(): raise RabError("media job not found")
         return json.loads(path.read_text(encoding="utf-8"))
 
-    def capture(self, device: str, *, rights: Rights = Rights.UNKNOWN, provenance: ProvenanceClass | str = ProvenanceClass.ORIGINAL_PHYSICAL_OWNED, notes: str = ""):
+    def capture(self, device: str, *, rights: Rights = Rights.UNKNOWN, provenance: ProvenanceClass | str = ProvenanceClass.ORIGINAL_PHYSICAL_OWNED, notes: str = "", verification: str = "standard"):
         self.jobs_root.mkdir(parents=True, exist_ok=True); job_id = uuid.uuid4().hex; staging = self.root / "staging" / job_id / "device.img"
-        job = {"schema": "rab-media-capture-job-v1", "job_id": job_id, "state": IngestJobState.CAPTURING.value, "created_at": _now(), "device": device, "adapter": self.adapter.capabilities(), "warnings": [], "errors": [], "object_id": None}
+        job = {"schema": "rab-media-capture-job-v1", "job_id": job_id, "state": IngestJobState.CAPTURING.value, "created_at": _now(), "device": device, "adapter": self.adapter.capabilities(), "verification_policy": verification, "verification": {"policy": verification, "status": "NOT_PERFORMED", "methods": []}, "warnings": [], "errors": [], "object_id": None}
         self.archive._atomic_json(self.jobs_root / (job_id + ".json"), job)
         try:
             capture = self.adapter.capture(device, staging)
             job.update({"capture": capture, "state": IngestJobState.INGESTING.value})
+            checks = ["capture_completed", "byte_count"]
+            if verification == "fast": job["verification"] = {"policy": verification, "status": "PASS", "methods": checks}
+            else:
+                job["verification"] = {"policy": verification, "status": "LIMITED", "methods": checks, "limitations": "repeat-read verification not implemented"}
             manager = IngestManager(self.archive)
             result = manager.ingest_staged(staging, category="personal", rights=rights, provenance=provenance, notes=notes, original_path=device)
             job.update({"object_id": result["object_id"], "ingest_job_id": result["job_id"], "state": result["state"], "completed_at": _now()})

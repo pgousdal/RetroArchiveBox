@@ -10,6 +10,7 @@ from rab.local_ingest import IngestManager, IngestJobState, ProvenanceClass
 from rab.media import BlockDeviceAdapter, MediaAdapter, MediaManager
 from rab.model import Rights
 from rab.store import Archive
+from rab.tree_ingest import TreeIngestManager
 from rab.web import WebApplication
 
 
@@ -70,3 +71,15 @@ def test_block_device_capture_refuses_active_root(tmp_path, monkeypatch):
     monkeypatch.setattr(adapter, "devices", lambda: [{"path": "/dev/sda", "type": "disk", "size": 100}])
     monkeypatch.setattr(adapter, "_root_source", lambda: "/dev/sda2")
     with pytest.raises(PolicyError): adapter.capture("/dev/sda", tmp_path / "image")
+
+
+def test_tree_ingest_manifest_and_symlink_safety(tmp_path):
+    archive = Archive(tmp_path / "archive"); tree = tmp_path / "tree"; (tree / "games").mkdir(parents=True)
+    (tree / "games" / "demo.adf").write_bytes(b"tree payload")
+    outside = tmp_path / "outside"; outside.write_bytes(b"not followed")
+    try: (tree / "escape").symlink_to(outside)
+    except OSError: pass
+    job = TreeIngestManager(archive).ingest(tree, category="personal", provenance=ProvenanceClass.PERSONAL_COPY)
+    assert job["state"] == "COMPLETED" and job["manifest_sha256"]
+    assert any(x["path"] == "games/demo.adf" and x["type"] == "file" for x in job["entries"])
+    assert any(x["type"] == "symlink" for x in job["entries"]) if (tree / "escape").is_symlink() else True

@@ -254,6 +254,13 @@ adapters remain future work. CLI, read-only API, and RetroWeb expose job/status
 metadata without arbitrary paths or remote capture controls. Rights, malware,
 identity, authority, and preservation identity remain separate.
 
+M6.6 also provides `rab local-ingest tree <directory>` for copied directory
+trees whose original block device is unavailable. It preserves deterministic
+relative hierarchy manifests, ingests regular files through the same CAS,
+records symlink/special-file metadata without following or opening them, and
+converges contained files with existing objects. A tree ingest is not a
+replacement for whole-device capture.
+
 ## M6.5 Optical Media Ingest
 
 M6.5 adds a Linux optical-drive foundation while preserving the distinction

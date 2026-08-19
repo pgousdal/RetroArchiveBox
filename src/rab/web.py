@@ -14,6 +14,7 @@ from .identity import IdentityCatalogue
 from .products import ProductBuilder
 from .local_ingest import IngestManager
 from .media import MediaManager, OpticalManager
+from .tree_ingest import TreeIngestManager
 
 
 CSS = """body { font-family: Arial, Helvetica, sans-serif; margin: 1em; max-width: 60em; color: #111; background: #fff; }
@@ -175,8 +176,9 @@ class WebApplication:
         return 200, "text/html; charset=utf-8", self.page("Derived Products", content, retro), None
 
     def ingest_jobs(self, retro):
-        jobs = IngestManager(self.catalogue.archive, read_only=True).jobs(); prefix = "/retro" if retro else "/web"
-        content = '<p>Read-only local ingest status.</p><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("provenance_classification")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No local ingest jobs recorded.</p>'
+        jobs = IngestManager(self.catalogue.archive, read_only=True).jobs(); trees = TreeIngestManager(self.catalogue.archive).jobs(); prefix = "/retro" if retro else "/web"
+        content = '<p>Read-only local ingest status.</p><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("provenance_classification")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No local file ingest jobs recorded.</p>'
+        if trees: content += '<h3>Tree ingest</h3><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("manifest_sha256")) + '</li>' for x in trees) + '</ul>'
         return 200, "text/html; charset=utf-8", self.page("Local Ingest", content, retro), None
 
     def media_jobs(self, retro):

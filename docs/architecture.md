@@ -209,6 +209,14 @@ and RetroWeb only expose read-only job/device/status information; device
 capture remains operator-local. Future optical, flux, tape, cartridge, and
 content-analysis adapters reuse this boundary without changing CAS identity.
 
+Filesystem/tree ingest is a separate representation path for copied trees,
+recovered directories, shares, or old media whose original device is absent.
+`TreeIngestManager` records a deterministic relative-path manifest, ingests
+regular files individually through `IngestManager`/`Archive.ingest`, preserves
+symlink metadata without following targets, and rejects special files as data.
+It does not package or flatten the tree into another opaque preservation master;
+each contained file retains its own byte identity and provenance relationship.
+
 ## Optical Media Ingest (M6.5)
 
 Optical preservation distinguishes a physical medium, inspection/layout

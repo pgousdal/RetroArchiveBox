@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/tree-ingest-job-v1.json",
+  "title": "RAB Tree Ingest Job v1",
+  "type": "object",
+  "required": ["schema", "job_id", "state", "entries", "manifest_sha256"],
+  "properties": {
+    "schema": {"const": "rab-tree-ingest-job-v1"},
+    "job_id": {"type": "string"},
+    "state": {"type": "string"},
+    "entries": {"type": "array"},
+    "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": true
+}

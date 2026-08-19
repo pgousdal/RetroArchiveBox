@@ -21,6 +21,7 @@ from .identity import IdentityCatalogue
 from .products import ProductBuilder
 from .local_ingest import IngestManager
 from .media import MediaManager, OpticalManager
+from .tree_ingest import TreeIngestManager
 
 
 class CatalogueAPI:
@@ -67,6 +68,7 @@ class CatalogueAPI:
         if route == "/api/v1/ingest/jobs": return 200, [self._public_ingest_job(x) for x in local_ingest.jobs()]
         m = re.fullmatch(r"/api/v1/ingest/jobs/([0-9a-f]+)", route)
         if m: return 200, self._public_ingest_job(local_ingest.show(m.group(1)))
+        if route == "/api/v1/ingest/trees": return 200, TreeIngestManager(self.catalogue.archive).jobs()
         media = MediaManager(self.catalogue.archive)
         if route == "/api/v1/media/devices": return 200, media.devices()
         if route == "/api/v1/media/jobs": return 200, [self._public_media_job(x) for x in media.jobs()]

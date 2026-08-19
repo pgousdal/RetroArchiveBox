@@ -272,6 +272,10 @@ PERFORMED. Future optical/flux capture, filesystem extraction, watched-folder
 services, USB imaging production privileges, and broader platform identification
 remain open. Museum-grade status remains **NO**.
 
+M6.6 additionally establishes generic tree ingest for copied filesystem
+hierarchies. Whole-device images remain the preservation representation for
+removable media; tree ingest is a separate deterministic manifest/file path.
+
 ## M6.5 Optical Media Ingest (2026-08-19)
 
 M6.5 adds the generic Linux optical inspection/capture foundation. Physical

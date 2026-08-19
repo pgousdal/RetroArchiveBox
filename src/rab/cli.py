@@ -25,6 +25,7 @@ from .identity import IdentityCatalogue
 from .products import ProductBuilder
 from .local_ingest import IngestManager, ProvenanceClass
 from .media import MediaManager, OpticalManager
+from .tree_ingest import TreeIngestManager
 
 
 def parser() -> argparse.ArgumentParser:
@@ -190,6 +191,7 @@ def parser() -> argparse.ArgumentParser:
     local_show = local_sub.add_parser("show"); local_show.add_argument("job_id")
     local_file = local_sub.add_parser("file"); local_file.add_argument("path", type=Path); local_file.add_argument("--category", choices=IngestManager.CATEGORIES, default="unknown"); local_file.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.UNKNOWN.value); local_file.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); local_file.add_argument("--notes", default="")
     inbox_scan = local_sub.add_parser("inbox-scan"); inbox_scan.add_argument("--category", choices=IngestManager.CATEGORIES)
+    tree = local_sub.add_parser("tree"); tree.add_argument("directory", type=Path); tree.add_argument("--category", choices=IngestManager.CATEGORIES, default="unknown"); tree.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.UNKNOWN.value); tree.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); tree.add_argument("--notes", default="")
     media = sub.add_parser("media", help="inspect and capture physical media")
     media_sub = media.add_subparsers(dest="media_command", required=True)
     media_sub.add_parser("devices")
@@ -391,6 +393,7 @@ def run(args: argparse.Namespace) -> dict | list:
         if args.local_command == "jobs": return manager.jobs()
         if args.local_command == "show": return manager.show(args.job_id)
         if args.local_command == "file": return manager.ingest_file(args.path, category=args.category, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes)
+        if args.local_command == "tree": return TreeIngestManager(archive).ingest(args.directory, category=args.category, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes)
         return manager.scan_inbox(args.category)
     if args.command == "media":
         if args.media_command == "optical":
