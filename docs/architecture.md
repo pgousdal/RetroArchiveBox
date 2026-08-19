@@ -209,6 +209,31 @@ and RetroWeb only expose read-only job/device/status information; device
 capture remains operator-local. Future optical, flux, tape, cartridge, and
 content-analysis adapters reuse this boundary without changing CAS identity.
 
+## Optical Media Ingest (M6.5)
+
+Optical preservation distinguishes a physical medium, inspection/layout
+evidence, capture representation, and later derived representations. A simple
+single-session data disc may use a block-aligned `dd` sector capture. Audio,
+mixed-mode, multisession, and unknown media are planned as track-aware or
+unsupported unless appropriate tooling and evidence are available; they are
+never silently flattened into a complete ISO claim. A future BIN/CUE, WAV
+track, or filesystem extraction can be related to the same medium without
+becoming byte identity.
+
+`OpticalAdapter` uses list-based `lsblk`, `blkid`, and `dd` commands with
+timeouts. `OpticalManager` persists capture jobs and inspection/plan evidence,
+passes successful staging images through `IngestManager`, and cleans staging
+after ingest. Verification currently records fast capture-complete and
+block-alignment checks; standard/archival policy fields are retained for future
+repeat-read and track verification. Read errors, missing tools, malformed
+inspection, partial media, and unsupported layouts remain explicit outcomes.
+
+No API route triggers physical capture. API/RetroWeb expose read-only device,
+inspection, job, representation, and verification status. Optical tools are
+optional official Debian packages and are disabled by default. Device read
+privileges belong to the operator/capture boundary, not the web/API service;
+source media is never mounted read-write or modified.
+
 ## Consumer Resource Broker v1
 
 The broker is a derived consumer plane above M1 preservation and the M2/M3

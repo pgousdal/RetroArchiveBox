@@ -20,7 +20,7 @@ from .bootstrap import BootstrapStore
 from .identity import IdentityCatalogue
 from .products import ProductBuilder
 from .local_ingest import IngestManager
-from .media import MediaManager
+from .media import MediaManager, OpticalManager
 
 
 class CatalogueAPI:
@@ -72,6 +72,11 @@ class CatalogueAPI:
         if route == "/api/v1/media/jobs": return 200, [self._public_media_job(x) for x in media.jobs()]
         m = re.fullmatch(r"/api/v1/media/jobs/([0-9a-f]+)", route)
         if m: return 200, self._public_media_job(media.show(m.group(1)))
+        optical = OpticalManager(self.catalogue.archive)
+        if route == "/api/v1/media/optical/devices": return 200, optical.devices()
+        if route == "/api/v1/media/optical/jobs": return 200, optical.jobs()
+        m = re.fullmatch(r"/api/v1/media/optical/jobs/([0-9a-f]+)", route)
+        if m: return 200, optical.show(m.group(1))
         if route.startswith("/api/v1/products/"):
             product_path = unquote(route.removeprefix("/api/v1/products/"))
             matches = [x for x in ProductBuilder(self.catalogue.archive, identity=identity).list() if x.get("path_id") == product_path]

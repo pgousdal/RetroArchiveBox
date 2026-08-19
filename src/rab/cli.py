@@ -24,7 +24,7 @@ from .bootstrap import BootstrapOrchestrator, BootstrapStore
 from .identity import IdentityCatalogue
 from .products import ProductBuilder
 from .local_ingest import IngestManager, ProvenanceClass
-from .media import MediaManager
+from .media import MediaManager, OpticalManager
 
 
 def parser() -> argparse.ArgumentParser:
@@ -197,6 +197,13 @@ def parser() -> argparse.ArgumentParser:
     media_capture = media_sub.add_parser("capture"); media_capture.add_argument("device"); media_capture.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.ORIGINAL_PHYSICAL_OWNED.value); media_capture.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); media_capture.add_argument("--notes", default="")
     media_sub.add_parser("jobs")
     media_show = media_sub.add_parser("show"); media_show.add_argument("job_id")
+    optical = media_sub.add_parser("optical")
+    optical_sub = optical.add_subparsers(dest="optical_command", required=True)
+    optical_sub.add_parser("devices")
+    optical_inspect = optical_sub.add_parser("inspect"); optical_inspect.add_argument("device")
+    optical_capture = optical_sub.add_parser("capture"); optical_capture.add_argument("device"); optical_capture.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.ORIGINAL_PHYSICAL_OWNED.value); optical_capture.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); optical_capture.add_argument("--notes", default=""); optical_capture.add_argument("--verification", choices=["fast", "standard", "archival"], default="standard")
+    optical_sub.add_parser("jobs")
+    optical_show = optical_sub.add_parser("show"); optical_show.add_argument("job_id")
     resource = sub.add_parser("resource", help="resolve and deliver consumer resources")
     resource_sub = resource.add_subparsers(dest="resource_command", required=True)
     resource_search = resource_sub.add_parser("search")
@@ -386,6 +393,13 @@ def run(args: argparse.Namespace) -> dict | list:
         if args.local_command == "file": return manager.ingest_file(args.path, category=args.category, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes)
         return manager.scan_inbox(args.category)
     if args.command == "media":
+        if args.media_command == "optical":
+            manager = OpticalManager(archive)
+            if args.optical_command == "devices": return manager.devices()
+            if args.optical_command == "inspect": return manager.inspect(args.device)
+            if args.optical_command == "capture": return manager.capture(args.device, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes, verification=args.verification)
+            if args.optical_command == "jobs": return manager.jobs()
+            return manager.show(args.job_id)
         manager = MediaManager(archive)
         if args.media_command == "devices": return manager.devices()
         if args.media_command == "inspect": return manager.inspect(args.device)

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/optical-capture-job-v1.json",
+  "title": "RAB Optical Capture Job v1",
+  "type": "object",
+  "required": ["schema", "job_id", "state", "device", "verification_policy"],
+  "properties": {
+    "schema": {"const": "rab-optical-capture-job-v1"},
+    "job_id": {"type": "string"},
+    "state": {"type": "string"},
+    "device": {"type": "string"},
+    "verification_policy": {"enum": ["fast", "standard", "archival"]},
+    "inspection": {"type": "object"},
+    "plan": {"type": "object"},
+    "verification": {"type": "object"},
+    "object_id": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}

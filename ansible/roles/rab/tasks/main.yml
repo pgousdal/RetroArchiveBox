@@ -25,6 +25,15 @@
     update_cache: true
   when: rab_clamav_enabled
 
+- name: Install optional Debian optical track tools
+  ansible.builtin.apt:
+    name:
+      - cdrdao
+      - cdparanoia
+    state: present
+    update_cache: true
+  when: rab_optical_enabled
+
 - name: Apply explicit ClamAV signature updater policy
   ansible.builtin.systemd_service:
     name: clamav-freshclam.service

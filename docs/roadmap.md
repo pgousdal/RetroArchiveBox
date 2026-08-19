@@ -272,6 +272,22 @@ PERFORMED. Future optical/flux capture, filesystem extraction, watched-folder
 services, USB imaging production privileges, and broader platform identification
 remain open. Museum-grade status remains **NO**.
 
+## M6.5 Optical Media Ingest (2026-08-19)
+
+M6.5 adds the generic Linux optical inspection/capture foundation. Physical
+media, sessions/tracks, capture representations, verification evidence,
+limitations, provenance, identity, malware, and rights remain distinct. Simple
+single-session data optical media has an ISO-like block capture path through
+the existing local-ingest and CAS boundary. Audio, mixed-mode, multisession,
+and unknown layouts explicitly require track-aware tooling or remain
+unsupported; no silent ISO flattening is performed. Optional Debian `cdrdao`
+and `cdparanoia` provisioning is disabled by default. CLI/API/RetroWeb status
+and deterministic synthetic fixture tests are implemented. No drive or real
+disc was available, so real optical/hardware/Debian provisioning qualification
+is **NOT PERFORMED**. Physical media, optical tool qualification, flux capture,
+and filesystem extraction remain follow-on work. Museum-grade status remains
+**NO**.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

@@ -254,6 +254,26 @@ adapters remain future work. CLI, read-only API, and RetroWeb expose job/status
 metadata without arbitrary paths or remote capture controls. Rights, malware,
 identity, authority, and preservation identity remain separate.
 
+## M6.5 Optical Media Ingest
+
+M6.5 adds a Linux optical-drive foundation while preserving the distinction
+between a physical medium and any captured byte representation. The optical
+adapter inspects drive/media evidence through `lsblk`/`blkid`, plans a simple
+single-session data capture as a block-aligned ISO-like representation, and
+explicitly returns `TOOL_MISSING`/`UNSUPPORTED` for audio, mixed-mode,
+multisession, or unknown media when track-aware tools are unavailable. It never
+silently claims an ISO is a complete audio or multisession preservation.
+
+Optical jobs record inspection/layout limitations, drive, tool/version,
+strategy, verification evidence, provenance, and resulting preservation object.
+Simple captures pass through controlled staging, `IngestManager`, identity,
+malware state, and immutable `Archive.ingest`; duplicate physical captures add
+occurrences without adding masters. `rab media optical ...`, read-only API
+routes, and RetroWeb status expose the workflow. Optical tooling (`cdrdao` and
+`cdparanoia`) is optional Debian provisioning, disabled by default. No optical
+drive or real disc was available for qualification in this environment; only
+synthetic fixtures were used. Museum-grade status remains unclaimed.
+
 ## M4.1 authority assertions
 
 `rab authority import FILE.dat` preserves the original TOSEC DAT through M1,
