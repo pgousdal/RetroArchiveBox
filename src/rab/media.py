@@ -13,6 +13,7 @@ from pathlib import Path
 from .errors import PolicyError, RabError
 from .local_ingest import IngestJobState, IngestManager, ProvenanceClass
 from .model import Rights
+from .inventory import inventory_image
 
 
 class RepresentationKind(StrEnum):
@@ -284,7 +285,7 @@ class OpticalManager:
         try:
             inspection = self.adapter.inspect(device); plan = self.adapter.plan(inspection); job.update({"inspection": inspection.__dict__, "plan": plan})
             if plan["state"] != OpticalOutcome.COMPLETE.value: job["state"] = plan["state"]; raise PolicyError(plan["reason"])
-            capture = self.adapter.capture(device, stage); job["state"] = "INGESTING"
+            capture = self.adapter.capture(device, stage); job["inventory"] = inventory_image(stage); job["state"] = "INGESTING"
             result = IngestManager(self.archive).ingest_staged(stage, category="personal", rights=rights, provenance=provenance, notes=notes, original_path=device)
             job.update({"state": OpticalOutcome.COMPLETE.value, "object_id": result["object_id"], "ingest_job_id": result["job_id"], "capture": capture, "representations": [{"object_id": result["object_id"], "kind": RepresentationKind.PRESERVATION_FORMAT.value}], "completed_at": _now()})
         except Exception as exc:

@@ -8,6 +8,7 @@ from rab.catalogue import Catalogue
 from rab.errors import PolicyError
 from rab.local_ingest import IngestManager, IngestJobState, ProvenanceClass
 from rab.media import BlockDeviceAdapter, MediaAdapter, MediaManager
+from rab.inventory import inventory_image
 from rab.model import Rights
 from rab.store import Archive
 from rab.tree_ingest import TreeIngestManager
@@ -83,3 +84,9 @@ def test_tree_ingest_manifest_and_symlink_safety(tmp_path):
     assert job["state"] == "COMPLETED" and job["manifest_sha256"]
     assert any(x["path"] == "games/demo.adf" and x["type"] == "file" for x in job["entries"])
     assert any(x["type"] == "symlink" for x in job["entries"]) if (tree / "escape").is_symlink() else True
+
+
+def test_captured_image_partition_inventory_is_non_mounting(tmp_path):
+    image = tmp_path / "disk.img"; data = bytearray(8192); data[510:512] = b"\x55\xaa"; data[446 + 4] = 0x0b; data[446 + 8:446 + 12] = (1).to_bytes(4, "little"); data[446 + 12:446 + 16] = (4).to_bytes(4, "little"); image.write_bytes(data)
+    value = inventory_image(image)
+    assert value["partition_table"] == "mbr" and value["partitions"][0]["start_lba"] == 1 and value["mounted"] is False
