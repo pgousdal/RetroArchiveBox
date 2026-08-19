@@ -14,6 +14,7 @@ from .identity import IdentityCatalogue
 from .products import ProductBuilder
 from .local_ingest import IngestManager
 from .media import MediaManager, OpticalManager
+from .flux import FluxManager
 from .tree_ingest import TreeIngestManager
 
 
@@ -80,6 +81,7 @@ class WebApplication:
             if route == "/ingest": return self.ingest_jobs(retro)
             if route == "/media": return self.media_jobs(retro)
             if route == "/optical": return self.optical_jobs(retro)
+            if route == "/flux": return self.flux_jobs(retro)
             if route.startswith("/source/"): return self.source(unquote(route.removeprefix("/source/")), retro)
             if route.startswith("/resource/"): return self.resource(unquote(route.removeprefix("/resource/")), retro)
             if route.startswith("/set/"): return self.resource_set(unquote(route.removeprefix("/set/")), retro)
@@ -106,7 +108,7 @@ class WebApplication:
     def home(self, retro):
         stats = self.broker.stats()
         content = '<p>Preservation-first archive browser.</p><form action="' + ("/retro" if retro else "/web") + '/search" method="get"><label for="q">Search:</label><input type="text" id="q" name="q" size="32" /><input type="submit" value="Search" /></form>'
-        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li><li><a href="' + ("/retro" if retro else "/web") + '/ingest">Local ingest</a></li><li><a href="' + ("/retro" if retro else "/web") + '/media">Media captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/optical">Optical captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/products">Derived products</a></li></ul>'
+        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li><li><a href="' + ("/retro" if retro else "/web") + '/ingest">Local ingest</a></li><li><a href="' + ("/retro" if retro else "/web") + '/media">Media captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/optical">Optical captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/flux">Flux captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/products">Derived products</a></li></ul>'
         content += '<p class="muted">Indexed resources: ' + _e(stats.get("resources", 0)) + '; resource sets: ' + _e(stats.get("resource_sets", 0)) + '.</p>'
         return 200, "text/html; charset=utf-8", self.page("Home", content, retro), None
 
@@ -188,6 +190,12 @@ class WebApplication:
     def optical_jobs(self, retro):
         jobs = OpticalManager(self.catalogue.archive).jobs(); content = '<p>Read-only optical capture status.</p><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No optical capture jobs recorded.</p>'
         return 200, "text/html; charset=utf-8", self.page("Optical Captures", content, retro), None
+
+    def flux_jobs(self, retro):
+        jobs = FluxManager(self.catalogue.archive).jobs(); prefix = "/retro" if retro else "/web"
+        content = '<p>Read-only flux preservation status. Raw flux is retained as preservation evidence.</p>'
+        content += '<ul>' + ''.join('<li>' + _e(x.get("job_id")) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("capture_format")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No flux capture jobs recorded.</p>'
+        return 200, "text/html; charset=utf-8", self.page("Flux Captures", content, retro), None
 
     def resource(self, resource_id, retro):
         item = self.broker.show(resource_id); prefix = "/retro" if retro else "/web"; analysis = item.get("malware_analysis", {}); content = '<dl><dt>Resource ID</dt><dd><code>' + _e(item["resource_id"]) + '</code></dd><dt>Name</dt><dd>' + _e(item.get("name")) + '</dd><dt>Version</dt><dd>' + _e(item.get("version")) + '</dd><dt>Kind</dt><dd>' + _e(item.get("kind")) + '</dd><dt>Platform</dt><dd>' + _e(item.get("platform")) + '</dd><dt>Availability</dt><dd>' + _e(item.get("availability")) + '</dd><dt>Rights</dt><dd>' + _e(item.get("rights")) + '</dd><dt>Malware analysis</dt><dd>' + _e(analysis.get("status", "NOT_SCANNED")) + '</dd></dl>'

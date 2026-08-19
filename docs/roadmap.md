@@ -292,6 +292,33 @@ is **NOT PERFORMED**. Physical media, optical tool qualification, flux capture,
 and filesystem extraction remain follow-on work. Museum-grade status remains
 **NO**.
 
+## M6.7 Flux / Greaseweazle Ingest Foundation (2026-08-19)
+
+M6.7 adds a generic flux adapter boundary above the existing physical-media
+and `Archive.ingest` contracts. The Greaseweazle adapter records tool,
+firmware/device evidence where available, enforces RAB read-only capture, and
+preserves SCP raw flux as the master. Generic decoder records can derive ADF
+and D64 objects without replacing the raw evidence; G64, IPF/SPS, and future
+adapters remain honest extension points. Floppy geometry profiles are data,
+not Amiga/C64 subsystems.
+
+Deterministic fixtures cover adapter discovery, malformed/missing tools,
+safe command policy, duplicate convergence, universal hashes, weak-track
+evidence, decode success/failure, identity relationships, API, and RetroWeb.
+Verification distinguishes raw byte identity from decoded semantic and
+track/flux consistency; repeat captures are not required to hash identically.
+Flux container malware coverage is recorded as `CONTAINER_ONLY`, not as a
+fabricated clean result. Provenance and rights remain independent and an
+operator may preserve unknown, copied, or pirate-declared media without
+automatic inference. M6.7 is complete for software/fixture scope only.
+
+Debian 13 provisioning qualification, real Greaseweazle V4.1 detection,
+real Amiga/C64 capture, and real repeat-read qualification are **NOT
+PERFORMED**. Follow-ons include M6.8 watched inbox production, M6.9 unified
+operator UX/auto-detection, real hardware qualification, deeper optical
+qualification, recursive filesystem analysis, tape/cartridge capture, and
+public derived-product publication. Museum-grade status remains **NO**.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

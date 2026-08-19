@@ -96,6 +96,17 @@ fabricated clean result. Museum-grade status remains unclaimed.
 See [docs/architecture.md](docs/architecture.md) and
 [docs/roadmap.md](docs/roadmap.md) for boundaries and milestone status.
 
+## M6.7 Flux ingest
+
+`rab media flux` provides a read-only Greaseweazle foundation. Captures use
+the official `gw read --raw` path and retain SCP raw flux as the preservation
+master. A successful ADF or D64 decode does not replace the flux master;
+flux, ADF, D64, G64, and future IPF objects have separate byte identities.
+Separate flux reads may differ byte-for-byte while still being consistent
+reads, so repeat verification compares decoded and track evidence rather than
+requiring equal raw hashes. Greaseweazle V4.1 and real floppy qualification
+are not performed until hardware is available.
+
 ## Retro-Compatible Web v1
 
 RAB provides an optional server-rendered read-only web interface through

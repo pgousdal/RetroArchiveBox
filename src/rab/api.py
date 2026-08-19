@@ -21,6 +21,7 @@ from .identity import IdentityCatalogue
 from .products import ProductBuilder
 from .local_ingest import IngestManager
 from .media import MediaManager, OpticalManager
+from .flux import FluxManager
 from .tree_ingest import TreeIngestManager
 
 
@@ -79,6 +80,13 @@ class CatalogueAPI:
         if route == "/api/v1/media/optical/jobs": return 200, optical.jobs()
         m = re.fullmatch(r"/api/v1/media/optical/jobs/([0-9a-f]+)", route)
         if m: return 200, optical.show(m.group(1))
+        flux = FluxManager(self.catalogue.archive)
+        if route == "/api/v1/media/flux/adapters": return 200, flux.adapters()
+        if route == "/api/v1/media/flux/devices": return 200, flux.devices()
+        if route == "/api/v1/media/flux/profiles": return 200, flux.profiles()
+        if route == "/api/v1/media/flux/jobs": return 200, [self._public_flux_job(x) for x in flux.jobs()]
+        m = re.fullmatch(r"/api/v1/media/flux/jobs/([0-9a-f]+)", route)
+        if m: return 200, self._public_flux_job(flux.show(m.group(1)))
         if route.startswith("/api/v1/products/"):
             product_path = unquote(route.removeprefix("/api/v1/products/"))
             matches = [x for x in ProductBuilder(self.catalogue.archive, identity=identity).list() if x.get("path_id") == product_path]
@@ -220,6 +228,15 @@ class CatalogueAPI:
         value = {**job}
         if isinstance(value.get("capture"), dict):
             value["capture"] = {k: v for k, v in value["capture"].items() if k != "command"}
+        return value
+
+    @staticmethod
+    def _public_flux_job(job):
+        value = {**job}
+        if isinstance(value.get("capture"), dict):
+            value["capture"] = {k: v for k, v in value["capture"].items() if k not in {"command", "tool_output"}}
+        if isinstance(value.get("adapter"), dict):
+            value["adapter"] = {k: v for k, v in value["adapter"].items() if k != "raw_info"}
         return value
 
     def download_object(self, identifier: str, *, public: bool = False) -> dict:

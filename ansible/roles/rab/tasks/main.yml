@@ -34,6 +34,20 @@
     update_cache: true
   when: rab_optical_enabled
 
+- name: Add RAB operator account to USB serial device group
+  ansible.builtin.user:
+    name: "{{ rab_user }}"
+    groups: dialout
+    append: true
+  when: rab_greaseweazle_enabled
+
+- name: Install pinned official Greaseweazle host tools
+  ansible.builtin.command:
+    cmd: "/opt/rab/venv/bin/pip install {{ rab_greaseweazle_source }}"
+  register: rab_greaseweazle_install
+  changed_when: rab_greaseweazle_install.stdout is search('Successfully installed')
+  when: rab_greaseweazle_enabled
+
 - name: Apply explicit ClamAV signature updater policy
   ansible.builtin.systemd_service:
     name: clamav-freshclam.service

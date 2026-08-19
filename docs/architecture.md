@@ -242,6 +242,60 @@ optional official Debian packages and are disabled by default. Device read
 privileges belong to the operator/capture boundary, not the web/API service;
 source media is never mounted read-write or modified.
 
+## Flux / Greaseweazle Ingest (M6.7)
+
+Flux preservation is a first-class generic physical-medium path:
+
+```text
+physical floppy -> Greaseweazle read-only capture -> SCP raw flux master
+                                              +-> decoder -> ADF/D64/G64 derivative
+                                              +-> weak-track and repeat-read evidence
+```
+
+`GreaseweazleAdapter` uses the upstream `gw info`, `gw read`, and `gw convert`
+interfaces through argument lists, `shell=False`, and bounded timeouts. The
+default raw format is SCP because it retains flux timing and is supported by
+the Greaseweazle image toolchain. RAB capture always sets its own read-only
+policy; hardware write protection is recorded as true, false, or unknown and
+is never guessed. Write, erase, clean, update, and other write-capable paths
+are rejected.
+
+Profiles separate physical assumptions from logical encoding. The foundation
+contains 3.5-inch DD/HD and 5.25-inch DD profiles, while encoding hints such
+as Amiga, IBM/MFM, Atari ST, and Commodore 1541/GCR remain metadata rather
+than platform-specific capture control flow. Unknown media can be captured
+with explicit tracks and revolutions.
+
+The raw SCP object crosses the normal `Archive.ingest` boundary and receives
+all five universal hashes. Decoder objects are generic and evidence-bearing;
+ADF and D64 are useful derivatives where decoding succeeds, while G64 and IPF
+remain explicit future/external decoder boundaries. A successful ADF/D64
+decode does not replace the flux master, and ADF/D64/G64/IPF are not byte
+equivalent. TOSEC assertions belong to the decoded object and do not establish
+that the physical master is an SPS/IPF dump or an authentic original.
+
+Fast verification records completed capture and requested coverage. Standard
+and archival policies retain the distinction between byte identity, semantic
+decoded consistency, and track/flux consistency. Separate captures are not
+required to have equal SHA-256 values: timing variation is expected evidence.
+Weak bits, unstable tracks, sync anomalies, and decoder warnings are retained
+in job metadata; unusual structure is not automatically corruption. Raw flux
+has `CONTAINER_ONLY` malware coverage by default, while decoded derivatives
+can receive ordinary non-destructive scanner observations.
+
+The CLI exposes `rab media flux adapters|devices|inspect|profiles|plan|capture|jobs|show|decode`;
+API routes under `/api/v1/media/flux/` and the zero-JavaScript RetroWeb
+`/retro/flux` page are read-only. No remote capture or write endpoint exists.
+Debian provisioning is opt-in and pins the official Greaseweazle repository
+tag `v1.23` in the RAB virtual environment; the `rab` service is not root and
+USB access is delegated to the operator's `dialout` membership.
+
+Later physical qualification must record tool/firmware/device identity,
+capture and repeat-read evidence, source-media unchanged checks, Amiga ADF,
+C64 D64/G64 attempts, failure recovery, and provenance. This software and
+fixture qualification does not claim real Greaseweazle V4.1, Amiga, C64, or
+Debian 13 hardware execution.
+
 ## Consumer Resource Broker v1
 
 The broker is a derived consumer plane above M1 preservation and the M2/M3

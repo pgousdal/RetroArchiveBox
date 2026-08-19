@@ -25,6 +25,7 @@ from .identity import IdentityCatalogue
 from .products import ProductBuilder
 from .local_ingest import IngestManager, ProvenanceClass
 from .media import MediaManager, OpticalManager
+from .flux import FluxManager, FloppyProfile, VerificationPolicy
 from .tree_ingest import TreeIngestManager
 
 
@@ -206,6 +207,15 @@ def parser() -> argparse.ArgumentParser:
     optical_capture = optical_sub.add_parser("capture"); optical_capture.add_argument("device"); optical_capture.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.ORIGINAL_PHYSICAL_OWNED.value); optical_capture.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); optical_capture.add_argument("--notes", default=""); optical_capture.add_argument("--verification", choices=["fast", "standard", "archival"], default="standard")
     optical_sub.add_parser("jobs")
     optical_show = optical_sub.add_parser("show"); optical_show.add_argument("job_id")
+    flux = media_sub.add_parser("flux")
+    flux_sub = flux.add_subparsers(dest="flux_command", required=True)
+    flux_sub.add_parser("adapters"); flux_sub.add_parser("devices"); flux_sub.add_parser("profiles")
+    flux_inspect = flux_sub.add_parser("inspect"); flux_inspect.add_argument("device")
+    flux_plan = flux_sub.add_parser("plan"); flux_plan.add_argument("--profile", choices=[x.value for x in FloppyProfile], default=FloppyProfile.UNKNOWN.value); flux_plan.add_argument("--drive", default="A"); flux_plan.add_argument("--tracks", default="c=0-79:h=0-1"); flux_plan.add_argument("--revolutions", type=int, default=3)
+    flux_capture = flux_sub.add_parser("capture"); flux_capture.add_argument("device"); flux_capture.add_argument("--profile", choices=[x.value for x in FloppyProfile], default=FloppyProfile.UNKNOWN.value); flux_capture.add_argument("--drive", default="A"); flux_capture.add_argument("--tracks", default="c=0-79:h=0-1"); flux_capture.add_argument("--revolutions", type=int, default=3); flux_capture.add_argument("--verification", choices=[x.value for x in VerificationPolicy], default=VerificationPolicy.STANDARD.value); flux_capture.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.UNKNOWN.value); flux_capture.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); flux_capture.add_argument("--notes", default="")
+    flux_sub.add_parser("jobs")
+    flux_show = flux_sub.add_parser("show"); flux_show.add_argument("job_id")
+    flux_decode = flux_sub.add_parser("decode"); flux_decode.add_argument("object"); flux_decode.add_argument("--format", dest="format_id", required=True, choices=["adf", "d64", "g64"])
     resource = sub.add_parser("resource", help="resolve and deliver consumer resources")
     resource_sub = resource.add_subparsers(dest="resource_command", required=True)
     resource_search = resource_sub.add_parser("search")
@@ -402,6 +412,17 @@ def run(args: argparse.Namespace) -> dict | list:
             if args.optical_command == "inspect": return manager.inspect(args.device)
             if args.optical_command == "capture": return manager.capture(args.device, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes, verification=args.verification)
             if args.optical_command == "jobs": return manager.jobs()
+            return manager.show(args.job_id)
+        if args.media_command == "flux":
+            manager = FluxManager(archive)
+            if args.flux_command == "adapters": return manager.adapters()
+            if args.flux_command == "devices": return manager.devices()
+            if args.flux_command == "profiles": return manager.profiles()
+            if args.flux_command == "inspect": return manager.inspect(args.device)
+            if args.flux_command == "plan": return {"adapter": manager.adapter.capabilities(), "profile": manager.profiles()[args.profile], "drive": args.drive, "tracks": args.tracks, "revolutions": args.revolutions, "read_only": True}
+            if args.flux_command == "capture": return manager.capture(args.device, profile=args.profile, drive=args.drive, tracks=args.tracks, revolutions=args.revolutions, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes, verification=args.verification)
+            if args.flux_command == "jobs": return manager.jobs()
+            if args.flux_command == "decode": return manager.decode(args.object, args.format_id)
             return manager.show(args.job_id)
         manager = MediaManager(archive)
         if args.media_command == "devices": return manager.devices()

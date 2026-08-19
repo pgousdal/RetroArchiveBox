@@ -26,3 +26,6 @@ rab_aria2_enabled: true
 rab_inbox_root: "{{ rab_root }}/inbox"
 rab_media_root: "{{ rab_root }}/media"
 rab_optical_enabled: false
+rab_greaseweazle_enabled: false
+rab_greaseweazle_version: v1.23
+rab_greaseweazle_source: "git+https://github.com/keirf/greaseweazle.git@{{ rab_greaseweazle_version }}"
