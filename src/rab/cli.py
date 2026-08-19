@@ -241,7 +241,8 @@ def parser() -> argparse.ArgumentParser:
     optical_sub = optical.add_subparsers(dest="optical_command", required=True)
     optical_sub.add_parser("devices")
     optical_inspect = optical_sub.add_parser("inspect"); optical_inspect.add_argument("device")
-    optical_capture = optical_sub.add_parser("capture"); optical_capture.add_argument("device"); optical_capture.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.ORIGINAL_PHYSICAL_OWNED.value); optical_capture.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); optical_capture.add_argument("--notes", default=""); optical_capture.add_argument("--verification", choices=["fast", "standard", "archival"], default="standard")
+    optical_plan = optical_sub.add_parser("plan"); optical_plan.add_argument("device")
+    optical_capture = optical_sub.add_parser("capture"); optical_capture.add_argument("device"); optical_capture.add_argument("--physical-medium"); optical_capture.add_argument("--repeat-of"); optical_capture.add_argument("--platform"); optical_capture.add_argument("--title"); optical_capture.add_argument("--media-number"); optical_capture.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.ORIGINAL_PHYSICAL_OWNED.value); optical_capture.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); optical_capture.add_argument("--notes", default=""); optical_capture.add_argument("--verification", choices=["fast", "standard", "archival"], default="standard")
     optical_sub.add_parser("jobs")
     optical_show = optical_sub.add_parser("show"); optical_show.add_argument("job_id")
     flux = media_sub.add_parser("flux")
@@ -482,7 +483,9 @@ def run(args: argparse.Namespace) -> dict | list:
             manager = OpticalManager(archive)
             if args.optical_command == "devices": return manager.devices()
             if args.optical_command == "inspect": return manager.inspect(args.device)
-            if args.optical_command == "capture": return manager.capture(args.device, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes, verification=args.verification)
+            if args.optical_command == "plan":
+                inspection = manager.adapter.inspect(args.device); return {"inspection": inspection.__dict__, "plan": manager.adapter.plan(inspection), "read_only": True}
+            if args.optical_command == "capture": return manager.capture(args.device, physical_medium_id=args.physical_medium, repeat_of=args.repeat_of, platform_hint=args.platform, title=args.title, media_number=args.media_number, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes, verification=args.verification)
             if args.optical_command == "jobs": return manager.jobs()
             return manager.show(args.job_id)
         if args.media_command == "flux":

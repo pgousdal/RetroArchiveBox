@@ -386,6 +386,14 @@ routes, and RetroWeb status expose the workflow. Optical tooling (`cdrdao` and
 drive or real disc was available for qualification in this environment; only
 synthetic fixtures were used. Museum-grade status remains unclaimed.
 
+Optical job hardening retains physical-medium IDs, media/platform hints,
+capture-attempt/repeat metadata, hashes, and read-error evidence. Useful
+partial sector output is preserved as `PARTIAL` with warnings rather than
+deleted or called complete. Injected TOC/track evidence can route audio,
+mixed-mode, and multisession layouts to explicit track-aware
+`TOOL_MISSING`/`UNSUPPORTED` plans; ISO is not treated as universal CD
+preservation.
+
 ## M4.1 authority assertions
 
 `rab authority import FILE.dat` preserves the original TOSEC DAT through M1,

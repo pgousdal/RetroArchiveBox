@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import uuid
@@ -14,6 +15,7 @@ from .errors import PolicyError, RabError
 from .local_ingest import IngestJobState, IngestManager, ProvenanceClass
 from .model import Rights
 from .inventory import inventory_image
+from .hashing import hash_file
 
 
 class RepresentationKind(StrEnum):
@@ -55,6 +57,8 @@ class OpticalOutcome(StrEnum):
     UNSUPPORTED = "UNSUPPORTED"
     TOOL_MISSING = "TOOL_MISSING"
     FAILED = "FAILED"
+    TIMEOUT = "TIMEOUT"
+    READ_ERROR = "READ_ERROR"
 
 
 @dataclass(frozen=True)
@@ -176,11 +180,12 @@ class MediaManager:
     def jobs(self):
         return [json.loads(x.read_text(encoding="utf-8")) for x in sorted(self.jobs_root.glob("*.json"))] if self.jobs_root.is_dir() else []
     def show(self, job_id):
+        if not re.fullmatch(r"[0-9a-f]+", job_id): raise PolicyError("invalid optical job id")
         path = self.jobs_root / (job_id + ".json")
         if not path.is_file(): raise RabError("media job not found")
         return json.loads(path.read_text(encoding="utf-8"))
 
-    def capture(self, device: str, *, rights: Rights = Rights.UNKNOWN, provenance: ProvenanceClass | str = ProvenanceClass.ORIGINAL_PHYSICAL_OWNED, notes: str = "", verification: str = "standard"):
+    def capture(self, device: str, *, physical_medium_id=None, repeat_of=None, platform_hint=None, title=None, media_number=None, rights: Rights = Rights.UNKNOWN, provenance: ProvenanceClass | str = ProvenanceClass.ORIGINAL_PHYSICAL_OWNED, notes: str = "", verification: str = "standard"):
         self.jobs_root.mkdir(parents=True, exist_ok=True); job_id = uuid.uuid4().hex; staging = self.root / "staging" / job_id / "device.img"
         job = {"schema": "rab-media-capture-job-v1", "job_id": job_id, "state": IngestJobState.CAPTURING.value, "created_at": _now(), "device": device, "adapter": self.adapter.capabilities(), "verification_policy": verification, "verification": {"policy": verification, "status": "NOT_PERFORMED", "methods": []}, "warnings": [], "errors": [], "object_id": None}
         self.archive._atomic_json(self.jobs_root / (job_id + ".json"), job)
@@ -208,16 +213,17 @@ class OpticalAdapter(MediaAdapter):
     """Linux optical-drive adapter; command runner is injectable for fixtures."""
     adapter_id = "linux-optical-v1"
 
-    def __init__(self, *, runner=None, which=None):
+    def __init__(self, *, runner=None, which=None, toc_reader=None):
         self.runner = runner or self._run
         self.which = which or shutil.which
+        self.toc_reader = toc_reader
 
     @staticmethod
     def _run(command, **kwargs):
         return subprocess.run(command, check=False, capture_output=True, text=True, timeout=kwargs.get("timeout", 30), shell=False)
 
     def capabilities(self):
-        return {"adapter_id": self.adapter_id, "available": True, "kind": "optical-drive", "inspection": ["lsblk", "blkid"], "capture": ["dd"], "track_capture": bool(self.which("cdrdao"))}
+        return {"adapter_id": self.adapter_id, "available": True, "kind": "optical-drive", "inspection": ["lsblk", "blkid", "udev"], "capture": ["dd"], "track_capture": bool(self.which("cdrdao")), "supported_media": ["CD", "CD-R", "CD-RW", "DVD", "BD"], "write_operations": False}
 
     @staticmethod
     def _tool_version(tool: str) -> str | None:
@@ -248,23 +254,33 @@ class OpticalAdapter(MediaAdapter):
                 if "=" in line:
                     key, value = line.split("=", 1); fields[key] = value
         filesystem = fields.get("TYPE"); medium = "data-cd" if filesystem == "iso9660" else "dvd-rom" if filesystem == "udf" else "unknown-optical"
+        toc = self.toc_reader(device) if self.toc_reader else {}
+        tracks = tuple(OpticalTrack(int(x.get("number", index + 1)), str(x.get("track_type", "unknown")), x.get("start_lba"), x.get("end_lba"), x.get("session"), x) for index, x in enumerate(toc.get("tracks", [])))
+        sessions = toc.get("sessions")
+        mixed = bool(toc.get("mixed_mode")) or bool(tracks and any(x.track_type.lower().startswith("audio") for x in tracks) and any("data" in x.track_type.lower() for x in tracks))
+        if toc.get("medium_type"): medium = toc["medium_type"]
         return OpticalInspection(device, medium, int(fields["BLOCK_SIZE"]) if fields.get("BLOCK_SIZE", "").isdigit() else 2048,
             int(info["size"]) if str(info.get("size", "")).isdigit() else None, fields.get("LABEL"), filesystem,
-            None, (), False, ("TOC/session inspection unavailable" if not self.which("cdrdao") else "TOC inspection not implemented",),
-            {"lsblk": "lsblk", "blkid": "blkid", "dd": self._tool_version("dd"), "cdrdao": self.which("cdrdao")})
+            sessions, tracks, mixed, tuple(toc.get("limitations", ())) + (("TOC/session inspection unavailable",) if not tracks else ()),
+            {"lsblk": "lsblk", "blkid": "blkid", "dd": self._tool_version("dd"), "cdrdao": self.which("cdrdao"), "vendor": info.get("vendor"), "model": info.get("model"), "revision": info.get("revision"), "serial": info.get("serial"), "transport": info.get("tran")})
 
     def plan(self, inspection: OpticalInspection):
-        if inspection.medium_type in {"audio-cd", "mixed-mode", "unknown-optical"} or inspection.mixed_mode:
+        if inspection.medium_type in {"audio-cd", "mixed-mode", "unknown-optical"} or inspection.mixed_mode or len(inspection.tracks) > 1:
             return {"strategy": "TRACK_AWARE", "state": OpticalOutcome.TOOL_MISSING.value if not self.which("cdrdao") else OpticalOutcome.UNSUPPORTED.value, "reason": "track-aware optical tooling is unavailable or not qualified"}
-        return {"strategy": "ISO_SECTOR", "state": OpticalOutcome.COMPLETE.value, "block_size": inspection.block_size or 2048, "reason": "single data representation"}
+        return {"strategy": "ISO_SECTOR", "state": OpticalOutcome.COMPLETE.value, "block_size": inspection.block_size or 2048, "reason": "single data representation", "representation_kind": RepresentationKind.SECTOR_IMAGE.value}
 
     def capture(self, device: str, destination: Path, *, timeout: int = 86400):
         inspection = self.inspect(device); plan = self.plan(inspection)
         if plan["state"] != OpticalOutcome.COMPLETE.value: raise PolicyError(plan["state"] + ": " + plan["reason"])
         destination.parent.mkdir(parents=True, exist_ok=True)
         command = ["dd", "if=" + device, "of=" + str(destination), "bs=" + str(plan["block_size"]), "iflag=fullblock", "status=none"]
-        result = self.runner(command, timeout=timeout)
+        try:
+            result = self.runner(command, timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            if destination.is_file() and destination.stat().st_size: return {"inspection": inspection.__dict__, "plan": plan, "capture_tool": "dd", "command": command, "bytes": destination.stat().st_size, "outcome": OpticalOutcome.PARTIAL.value, "read_errors": ["capture timed out after partial output"], "verification": {"policy": "standard", "status": "PARTIAL"}}
+            raise RabError("optical capture timed out") from exc
         if result.returncode:
+            if destination.is_file() and destination.stat().st_size: return {"inspection": inspection.__dict__, "plan": plan, "capture_tool": "dd", "command": command, "bytes": destination.stat().st_size, "outcome": OpticalOutcome.PARTIAL.value, "read_errors": [(result.stderr or "optical tool returned failure")[-2000:]], "verification": {"policy": "standard", "status": "PARTIAL"}}
             destination.unlink(missing_ok=True); raise RabError("optical capture failed")
         if destination.stat().st_size % plan["block_size"]:
             destination.unlink(missing_ok=True); raise RabError("optical capture is not block aligned")
@@ -279,20 +295,25 @@ class OpticalManager:
     def inspect(self, device): return self.adapter.inspect(device).__dict__
     def jobs(self): return [json.loads(x.read_text(encoding="utf-8")) for x in sorted(self.jobs_root.glob("*.json"))] if self.jobs_root.is_dir() else []
     def show(self, job_id):
+        if not re.fullmatch(r"[0-9a-f]+", job_id): raise PolicyError("invalid optical job id")
         path = self.jobs_root / (job_id + ".json")
         if not path.is_file(): raise RabError("optical job not found")
         return json.loads(path.read_text(encoding="utf-8"))
 
-    def capture(self, device: str, *, rights: Rights = Rights.UNKNOWN, provenance: ProvenanceClass | str = ProvenanceClass.ORIGINAL_PHYSICAL_OWNED, notes: str = "", verification: str = "standard"):
+    def capture(self, device: str, *, physical_medium_id=None, repeat_of=None, platform_hint=None, title=None, media_number=None, rights: Rights = Rights.UNKNOWN, provenance: ProvenanceClass | str = ProvenanceClass.ORIGINAL_PHYSICAL_OWNED, notes: str = "", verification: str = "standard"):
         self.jobs_root.mkdir(parents=True, exist_ok=True); job_id = uuid.uuid4().hex; stage = self.root / "staging" / job_id / "disc.iso"
-        job = {"schema": "rab-optical-capture-job-v1", "job_id": job_id, "state": "INSPECTING", "device": device, "created_at": _now(), "verification_policy": verification, "verification": {"policy": verification, "status": "NOT_PERFORMED"}, "warnings": [], "errors": [], "representations": []}
+        job = {"schema": "rab-optical-capture-job-v1", "job_id": job_id, "state": "INSPECTING", "device": device, "physical_medium_id": physical_medium_id or "physical-optical:" + uuid.uuid4().hex, "capture_attempt": "REPEAT" if repeat_of else "FIRST", "repeat_of": repeat_of, "platform_hint": platform_hint, "title": title, "media_number": media_number, "provenance_classification": ProvenanceClass(provenance).value, "rights": Rights(rights).value, "operator_notes": notes, "representation_kind": RepresentationKind.SECTOR_IMAGE.value, "created_at": _now(), "verification_policy": verification, "verification": {"policy": verification, "status": "NOT_PERFORMED"}, "warnings": [], "errors": [], "representations": []}
         self.archive._atomic_json(self.jobs_root / (job_id + ".json"), job)
         try:
             inspection = self.adapter.inspect(device); plan = self.adapter.plan(inspection); job.update({"inspection": inspection.__dict__, "plan": plan})
             if plan["state"] != OpticalOutcome.COMPLETE.value: job["state"] = plan["state"]; raise PolicyError(plan["reason"])
             capture = self.adapter.capture(device, stage); job["inventory"] = inventory_image(stage); job["state"] = "INGESTING"
+            if repeat_of:
+                previous = self.show(repeat_of); previous_sha = previous.get("hashes", {}).get("sha256") or previous.get("capture", {}).get("sha256")
+                job["repeat_comparison"] = {"repeat_of": repeat_of, "byte_identical": previous_sha == hash_file(stage)["sha256"], "raw_capture_hashes_compared": bool(previous_sha), "differing_capture_preserved": previous_sha != hash_file(stage)["sha256"]}
             result = IngestManager(self.archive).ingest_staged(stage, category="personal", rights=rights, provenance=provenance, notes=notes, original_path=device)
-            job.update({"state": OpticalOutcome.COMPLETE.value, "object_id": result["object_id"], "ingest_job_id": result["job_id"], "capture": capture, "representations": [{"object_id": result["object_id"], "kind": RepresentationKind.PRESERVATION_FORMAT.value}], "completed_at": _now()})
+            capture_outcome = capture.get("outcome", OpticalOutcome.COMPLETE.value)
+            job.update({"state": OpticalOutcome.COMPLETE_WITH_WARNINGS.value if capture_outcome == OpticalOutcome.PARTIAL.value else OpticalOutcome.COMPLETE.value, "object_id": result["object_id"], "ingest_job_id": result["job_id"], "capture": capture, "hashes": hash_file(stage), "representations": [{"object_id": result["object_id"], "kind": RepresentationKind.SECTOR_IMAGE.value}], "completed_at": _now()})
         except Exception as exc:
             job["errors"].append(str(exc)); job.setdefault("state", OpticalOutcome.FAILED.value)
             if job["state"] == "INSPECTING": job["state"] = OpticalOutcome.FAILED.value

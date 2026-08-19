@@ -470,6 +470,15 @@ optional official Debian packages and are disabled by default. Device read
 privileges belong to the operator/capture boundary, not the web/API service;
 source media is never mounted read-write or modified.
 
+Optical capture jobs retain physical-medium IDs, media/platform hints,
+first/repeat attempt evidence, read errors, hashes, and representation kind.
+Partial sector output is retained as `PARTIAL`/warning evidence when bytes are
+available; it is never reported as a complete disc. TOC/session/track evidence
+can route audio, mixed-mode, and multisession layouts to track-aware plans,
+which remain `TOOL_MISSING` or `UNSUPPORTED` until a qualified tool exists.
+API job views redact device paths and operator notes. ISO is a possible data
+track representation, not a universal physical-disc identity.
+
 ## Flux / Greaseweazle Ingest (M6.7)
 
 Flux preservation is a first-class generic physical-medium path:

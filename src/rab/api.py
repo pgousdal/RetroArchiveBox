@@ -83,10 +83,10 @@ class CatalogueAPI:
         m = re.fullmatch(r"/api/v1/media/jobs/([0-9a-f]+)", route)
         if m: return 200, self._public_media_job(media.show(m.group(1)))
         optical = OpticalManager(self.catalogue.archive)
-        if route == "/api/v1/media/optical/devices": return 200, optical.devices()
-        if route == "/api/v1/media/optical/jobs": return 200, optical.jobs()
+        if route == "/api/v1/media/optical/devices": return 200, [{key: value for key, value in item.items() if key not in {"path", "kname"}} for item in optical.devices()]
+        if route == "/api/v1/media/optical/jobs": return 200, [self._public_optical_job(x) for x in optical.jobs()]
         m = re.fullmatch(r"/api/v1/media/optical/jobs/([0-9a-f]+)", route)
-        if m: return 200, optical.show(m.group(1))
+        if m: return 200, self._public_optical_job(optical.show(m.group(1)))
         flux = FluxManager(self.catalogue.archive)
         if route == "/api/v1/media/flux/adapters": return 200, flux.adapters()
         if route == "/api/v1/media/flux/devices": return 200, flux.devices()
@@ -263,6 +263,13 @@ class CatalogueAPI:
         value = {**job}
         if isinstance(value.get("capture"), dict):
             value["capture"] = {k: v for k, v in value["capture"].items() if k != "command"}
+        return value
+
+    @staticmethod
+    def _public_optical_job(job):
+        value = {key: item for key, item in job.items() if key not in {"device", "operator_notes"}}
+        if isinstance(value.get("capture"), dict): value["capture"] = {key: item for key, item in value["capture"].items() if key not in {"command", "tool_output"}}
+        if isinstance(value.get("inspection"), dict): value["inspection"] = {key: item for key, item in value["inspection"].items() if key != "device"}
         return value
 
     @staticmethod

@@ -292,6 +292,11 @@ is **NOT PERFORMED**. Physical media, optical tool qualification, flux capture,
 and filesystem extraction remain follow-on work. Museum-grade status remains
 **NO**.
 
+The optical foundation also retains physical-medium/repeat metadata and useful
+partial sector captures, and accepts injected TOC/session/track evidence for
+safe strategy planning. Real optical drive/media qualification remains
+**NOT PERFORMED**.
+
 ## M6.7 Flux / Greaseweazle Ingest Foundation (2026-08-19)
 
 M6.7 adds a generic flux adapter boundary above the existing physical-media
