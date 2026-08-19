@@ -385,8 +385,13 @@ class Authority:
         for sha in objects:
             self.match(sha, dataset_id)
 
-    def assertions(self, identifier: str) -> list[dict]:
-        self.initialize(); sha = self.archive.resolve(identifier)
+    def assertions(self, identifier: str, *, read_only: bool = False) -> list[dict]:
+        if read_only:
+            if not self.db_path.is_file():
+                return []
+        else:
+            self.initialize()
+        sha = self.archive.resolve(identifier)
         with sqlite3.connect(self.db_path) as db:
             db.row_factory = sqlite3.Row
             rows = [dict(x) for x in db.execute("SELECT * FROM assertions WHERE object_sha256=? ORDER BY created_at", (sha,))]

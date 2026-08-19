@@ -136,6 +136,24 @@ dependency guards are tested. Ansible creates no consumer state unless
 explicitly configured. Malware analysis and approved on-demand acquisition are
 hooks only. Museum-grade status: NO.
 
+## Retro-Compatible Web v1 (2026-08-19)
+
+RAB now includes a conservative server-rendered HTML presentation layer backed
+by the existing catalogue and Resource Broker. Normal `/web` and austere
+`/retro` views provide home, search with traditional pagination, platform/source
+browsing, stable resource pages, Aminet payload/README relationships, escaped
+README text viewing, resource-set pages, authority evidence, rights-aware
+downloads, and future-compatible malware status display. Core functionality
+requires zero JavaScript; no SPA, frontend framework, Node/npm, CDN, telemetry,
+or external runtime dependency was added. The normal view has a small local CSS
+enhancement, while retro HTML remains useful without CSS.
+
+The service is read-only and reuses existing verified broker/API boundaries.
+Normal and optional retro HTTP services are disabled by default in Ansible. The
+retro profile is explicitly bound trusted-LAN HTTP only; HTTP provides no
+confidentiality and must not be exposed publicly. No specific historical
+browser has been qualified or claimed. Museum-grade status remains NO.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

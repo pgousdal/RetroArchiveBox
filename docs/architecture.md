@@ -30,6 +30,44 @@ future public redistribution: only REDISTRIBUTABLE occurrences may be served
 in a public mode; PRIVATE_LICENSED, RESTRICTED, and UNKNOWN remain blocked.
 Range requests are bounded to the object and streamed in chunks.
 
+## Retro-Compatible Web v1
+
+The web interface is a presentation layer, not another catalogue. A small
+stdlib `http.server` service renders HTML from the existing `CatalogueAPI`,
+`Catalogue`, and `ResourceBroker` boundaries. It has no JavaScript dependency,
+client-side router, SPA, Node/npm pipeline, framework, CDN, external font,
+analytics, or tracking. The normal `/web` view uses a small local conservative
+stylesheet; `/retro` and the `--retro-only` listener omit it and use basic
+document flow. Both views use ordinary GET forms, real hyperlinks, headings,
+tables, and escaped server-rendered content.
+
+RAB Web follows progressive enhancement. Core archive functionality is delivered
+as server-rendered HTML and does not require JavaScript.
+
+Routes cover home, bounded search/pagination, catalogue-derived platform and
+configured source browsing, stable resource and resource-set pages, bounded
+README text views, and rights-permitted object downloads. Resource pages expose
+logical IDs, versions, kinds, availability, rights, hashes, provenance,
+relationships, dependencies, malware status, and authority assertions without
+object-store paths. Download responses delegate fixity, rights, filename
+sanitization, streaming, and Range handling to the existing controlled
+boundary.
+
+The web process is read-only: catalogue and broker derived state must be built
+by the operator/CLI before service startup, and web POST requests are rejected.
+There are no administration, source, ingest, deletion, policy, materialization,
+or arbitrary-path routes. Errors are simple bounded HTML without traces,
+filesystem paths, SQL, or secrets. Stable logical URLs do not contain SQLite
+row IDs and remain meaningful after derived-state rebuilds.
+
+`rab-web.service` is disabled by default. `rab-retro-http.service` is a
+separate, disabled-by-default optional profile for explicitly trusted LANs. It
+binds only to the configured address and provides no confidentiality: HTTP must
+not be exposed to the public Internet. This compatibility exception does not
+weaken the authenticated API or reverse-proxy profile. Intended compatibility
+includes conservative Netscape, IE, Amiga, Atari, classic Mac, and text-browser
+families, but no vintage client is claimed qualified until actually tested.
+
 ## Consumer Resource Broker v1
 
 The broker is a derived consumer plane above M1 preservation and the M2/M3

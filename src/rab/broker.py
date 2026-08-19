@@ -185,15 +185,25 @@ class ConsumerRegistry:
 class ResourceBroker:
     VERSION = 1
 
-    def __init__(self, archive, *, registry: ConsumerRegistry | None = None):
+    def __init__(self, archive, *, registry: ConsumerRegistry | None = None, read_only: bool = False):
         self.archive = archive
         self.registry = registry or ConsumerRegistry()
+        self.read_only = read_only
         self.root = archive.root / "resource-metadata"
         self.resources = self.root / "resources"
         self.sets = self.root / "sets"
         self.state = archive.root / "consumer-state"
 
     def initialize(self) -> None:
+        if self.read_only:
+            if not self.archive.db_path.is_file():
+                raise RabError("broker state is unavailable; run 'rab resource search' or rebuild")
+            with self.archive.db() as db:
+                required = {"broker_resources", "broker_sets"}
+                present = {x[0] for x in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                if not required <= present:
+                    raise RabError("broker state is unavailable; rebuild broker state")
+            return
         self.archive.initialize()
         self.resources.mkdir(parents=True, exist_ok=True); self.sets.mkdir(parents=True, exist_ok=True)
         with self.archive.db() as db:
@@ -254,8 +264,9 @@ class ResourceBroker:
         generations = self.archive.db()
         with generations as db:
             latest = db.execute("SELECT * FROM package_generations WHERE package_id=? ORDER BY generation DESC LIMIT 1", (package_id,)).fetchone()
-        objects = tuple(x for x in ({"role": "payload", "sha256": latest["payload_sha256"]} if latest["payload_sha256"] else None,
-                                    {"role": "readme", "sha256": latest["readme_sha256"]} if latest["readme_sha256"] else None) if x)
+        stem = Path(package_id.split(":", 1)[1]).name
+        objects = tuple(x for x in ({"role": "payload", "filename": stem + ".lha", "sha256": latest["payload_sha256"]} if latest["payload_sha256"] else None,
+                                    {"role": "readme", "filename": stem + ".readme", "sha256": latest["readme_sha256"]} if latest["readme_sha256"] else None) if x)
         info = json.loads(latest["metadata"]); info.update(metadata)
         info["generation"] = int(latest["generation"])
         return self.register(ResourceDefinition(package_id, kind, name or info.get("name") or info.get("package_name") or info.get("short") or package_id.rsplit("/", 1)[-1],
@@ -296,6 +307,12 @@ class ResourceBroker:
         with self.archive.db() as db:
             row = db.execute("SELECT definition FROM broker_resources WHERE resource_id=?", (resource_id,)).fetchone()
         if row is None and resource_id.startswith("sha256:"):
+            if self.read_only:
+                sha = resource_id.removeprefix("sha256:")
+                obj = self.archive.show(resource_id)
+                value = ResourceDefinition(resource_id, ResourceKind.DISK_IMAGE, obj.get("title") or resource_id,
+                    objects=({"role": "payload", "sha256": resource_id},), rights=self._rights_for_sha(sha)).as_dict()
+                return self._descriptor(value)
             return self.register(ResourceDefinition(resource_id, ResourceKind.DISK_IMAGE, resource_id,
                 objects=({"role":"payload","sha256":resource_id},), rights=self._rights_for_sha(resource_id.removeprefix("sha256:"))))
         if row is None: raise BrokerError(ResolutionState.NOT_FOUND, "resource not found")
@@ -334,7 +351,7 @@ class ResourceBroker:
     def _authority(self, objects) -> list[dict]:
         try:
             from .authority import Authority
-            return [x for item in objects for x in Authority(self.archive).assertions(item["sha256"]) if x.get("result") == "EXACT_MATCH"]
+            return [x for item in objects for x in Authority(self.archive).assertions(item["sha256"], read_only=self.read_only) if x.get("result") == "EXACT_MATCH"]
         except RabError: return []
 
     @staticmethod

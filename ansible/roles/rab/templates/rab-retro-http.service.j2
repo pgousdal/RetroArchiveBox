@@ -1,0 +1,20 @@
+[Unit]
+Description=Retro Archive Box optional trusted-LAN retro HTTP interface
+After=local-fs.target
+
+[Service]
+Type=simple
+User={{ rab_user }}
+Group={{ rab_group }}
+ExecStart=/opt/rab/venv/bin/rab --root {{ rab_root }} --sources {{ rab_sources_dir }} web --host {{ rab_retro_http_bind }} --port {{ rab_retro_http_port }} --retro-only
+NoNewPrivileges=true
+UMask=0077
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths={{ rab_root }}
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

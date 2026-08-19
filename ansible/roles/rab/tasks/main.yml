@@ -127,11 +127,43 @@
     mode: "0644"
   notify: Reload systemd
 
+- name: Install server-rendered web service (disabled by default)
+  ansible.builtin.template:
+    src: rab-web.service.j2
+    dest: /etc/systemd/system/rab-web.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Install optional retro HTTP service (disabled by default)
+  ansible.builtin.template:
+    src: rab-retro-http.service.j2
+    dest: /etc/systemd/system/rab-retro-http.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
 - name: Apply catalogue API service policy
   ansible.builtin.systemd_service:
     name: rab-api.service
     enabled: "{{ rab_api_enabled }}"
     state: "{{ 'started' if rab_api_enabled else 'stopped' }}"
+    daemon_reload: true
+
+- name: Apply server-rendered web service policy
+  ansible.builtin.systemd_service:
+    name: rab-web.service
+    enabled: "{{ rab_web_enabled }}"
+    state: "{{ 'started' if rab_web_enabled else 'stopped' }}"
+    daemon_reload: true
+
+- name: Apply optional retro HTTP service policy
+  ansible.builtin.systemd_service:
+    name: rab-retro-http.service
+    enabled: "{{ rab_retro_http_enabled }}"
+    state: "{{ 'started' if rab_retro_http_enabled else 'stopped' }}"
     daemon_reload: true
 
 - name: Install fixity audit timer

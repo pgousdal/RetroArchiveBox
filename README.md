@@ -96,6 +96,32 @@ fabricated clean result. Museum-grade status remains unclaimed.
 See [docs/architecture.md](docs/architecture.md) and
 [docs/roadmap.md](docs/roadmap.md) for boundaries and milestone status.
 
+## Retro-Compatible Web v1
+
+RAB provides an optional server-rendered read-only web interface through
+`rab web`, `/web`, and the austere `/retro` view. Search, browse, resource
+inspection, README text viewing, resource sets, and permitted downloads use
+ordinary HTML hyperlinks and forms. Core functionality requires zero
+JavaScript, Node/npm, frameworks, CDNs, external fonts, analytics, or tracking.
+The normal view uses a small local conservative stylesheet; the retro view
+remains useful without CSS.
+
+The web layer delegates catalogue search, Resource Broker resolution, authority
+evidence, rights decisions, fixity, and streaming downloads to existing RAB
+services. It exposes no preservation paths and provides no ingest, deletion,
+administration, policy mutation, or arbitrary filesystem access. Historical
+README bytes are bounded, decoded safely, and escaped as text. Stable resource
+URLs use logical IDs and survive derived-state rebuilds.
+
+RAB Web follows progressive enhancement. Core archive functionality is delivered
+as server-rendered HTML and does not require JavaScript.
+
+Normal and retro views are compatibility targets, not browser qualifications.
+No specific vintage browser is claimed tested by this milestone. The optional
+retro HTTP listener is disabled by default, explicitly bound by Ansible, and
+read-only for trusted-LAN use only. HTTP provides no confidentiality and must
+not be exposed to an untrusted network. Museum-grade status remains unclaimed.
+
 ## M4.1 authority assertions
 
 `rab authority import FILE.dat` preserves the original TOSEC DAT through M1,

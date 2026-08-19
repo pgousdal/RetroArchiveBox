@@ -131,7 +131,7 @@ class CatalogueAPI:
 
     def download_object(self, identifier: str, *, public: bool = False) -> dict:
         sha = self.catalogue.archive.resolve(identifier)
-        row = self.catalogue.show_object("sha256:" + sha)
+        row = self.catalogue.show_object("sha256:" + sha, read_only=True)
         rights = {x["rights"] for x in row.get("occurrences", [])}
         if public and (not rights or rights - {"REDISTRIBUTABLE"}):
             raise PolicyError("object is not authorized for public redistribution")
@@ -144,6 +144,15 @@ class CatalogueAPI:
         filename = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename(names[0] if names else sha)) or sha
         return {"object_id": "sha256:" + sha, "path": str(master), "filename": filename,
                 "size": master.stat().st_size, "rights": sorted(rights)}
+
+    def read_object_text(self, identifier: str, *, maximum: int = 512 * 1024) -> str:
+        """Read a bounded textual object through the same verified boundary."""
+        download = self.download_object(identifier, public=False)
+        with open(download["path"], "rb") as handle:
+            data = handle.read(maximum + 1)
+        if len(data) > maximum:
+            data = data[:maximum] + b"\n[truncated by RAB]\n"
+        return data.decode("latin-1", errors="replace")
 
     @staticmethod
     def _public_download(value: dict) -> dict:

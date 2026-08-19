@@ -17,6 +17,7 @@ from .authority import Authority
 from .redump import RedumpAuthority
 from .additional_authorities import AdditionalAuthority
 from .broker import ConsumerContext, ConsumerRegistry, DeliveryMode, ResourceBroker, ResourceKind
+from .web import run_web_server
 
 
 def parser() -> argparse.ArgumentParser:
@@ -135,6 +136,10 @@ def parser() -> argparse.ArgumentParser:
     api = sub.add_parser("api", help="run the read-only catalogue API")
     api.add_argument("--host", default="127.0.0.1")
     api.add_argument("--port", type=int, default=8000)
+    web = sub.add_parser("web", help="run the server-rendered read-only web interface")
+    web.add_argument("--host", default="127.0.0.1")
+    web.add_argument("--port", type=int, default=8080)
+    web.add_argument("--retro-only", action="store_true")
     resource = sub.add_parser("resource", help="resolve and deliver consumer resources")
     resource_sub = resource.add_subparsers(dest="resource_command", required=True)
     resource_search = resource_sub.add_parser("search")
@@ -266,6 +271,9 @@ def run(args: argparse.Namespace) -> dict | list:
         return authority.assertions(args.object)
     if args.command == "api":
         run_server(archive, registry, args.host, args.port)
+        return {"outcome": "STOPPED"}
+    if args.command == "web":
+        run_web_server(archive, registry, args.host, args.port, retro_only=args.retro_only)
         return {"outcome": "STOPPED"}
     if args.command == "resource" or args.command == "resource-set" or args.command == "consumer":
         broker = ResourceBroker(archive, registry=ConsumerRegistry(Path(__file__).parents[2] / "config" / "consumers.json"))

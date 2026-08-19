@@ -448,8 +448,12 @@ class Catalogue:
     def search(self, query: str, *, platform: str | None = None,
                source: str | None = None, format_id: str | None = None,
                rights: str | None = None, authority: str | None = None,
-               authority_match: bool = False, limit: int = 25, offset: int = 0) -> dict:
-        self.initialize()
+               authority_match: bool = False, limit: int = 25, offset: int = 0,
+               read_only: bool = False) -> dict:
+        if read_only:
+            self.validate_readonly()
+        else:
+            self.initialize()
         limit = max(1, min(limit, 100)); offset = max(0, offset)
         terms = [term for term in query.split() if term]
         match = " AND ".join(f'"{term.replace(chr(34), "")}"' for term in terms)
@@ -493,8 +497,11 @@ class Catalogue:
                         "returned": len(results[offset:offset + limit])}
             return {"results": results, "limit": limit, "offset": offset, "returned": len(results)}
 
-    def show_object(self, sha256: str) -> dict:
-        self.initialize()
+    def show_object(self, sha256: str, *, read_only: bool = False) -> dict:
+        if read_only:
+            self.validate_readonly()
+        else:
+            self.initialize()
         sha256 = self.archive.resolve(sha256)
         with self.archive.db() as db:
             obj = db.execute("SELECT * FROM cat_objects WHERE sha256=?", (sha256,)).fetchone()
@@ -506,11 +513,14 @@ class Catalogue:
             result["metadata"] = [dict(x) for x in db.execute("SELECT * FROM cat_metadata WHERE entity_id=?", (sha256,))]
             result["events"] = [dict(x) for x in db.execute("SELECT * FROM cat_events WHERE entity_id=? ORDER BY occurred_at", (sha256,))]
             result["object_id"] = f"sha256:{sha256}"
-            result["authority_assertions"] = Authority(self.archive).assertions(sha256)
+            result["authority_assertions"] = Authority(self.archive).assertions(sha256, read_only=read_only)
             return result
 
-    def show_package(self, package_id: str) -> dict:
-        self.initialize()
+    def show_package(self, package_id: str, *, read_only: bool = False) -> dict:
+        if read_only:
+            self.validate_readonly()
+        else:
+            self.initialize()
         with self.archive.db() as db:
             package = db.execute("SELECT * FROM cat_packages WHERE package_id=?", (package_id,)).fetchone()
             if package is None:
