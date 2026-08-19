@@ -39,7 +39,7 @@ def orchestrator(tmp_path, *, safe=True, count=1):
 def test_unified_discovery_dry_run_is_non_mutating_and_routes_block_plan(tmp_path):
     manager, adapter, archive = orchestrator(tmp_path)
     candidates = manager.public_candidates()
-    assert candidates[0]["candidate_id"] == "block:/dev/fixture0"
+    assert candidates[0]["candidate_id"] == "block:0"
     assert "device" not in candidates[0]
     result = manager.ingest(candidate_id="block:/dev/fixture0", dry_run=True)
     assert result["capture_performed"] is False and result["plan"]["capture"]["method"] == "block-device-dd"

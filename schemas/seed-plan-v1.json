@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/seed-plan-v1.json",
+  "title": "RAB Local Seed Plan v1",
+  "type": "object",
+  "required": ["schema", "plan_id", "version", "entries"],
+  "properties": {
+    "schema": {"const": "rab-seed-plan-v1"},
+    "plan_id": {"type": "string"},
+    "version": {"type": "integer", "minimum": 1},
+    "entries": {"type": "array"}
+  },
+  "additionalProperties": true
+}

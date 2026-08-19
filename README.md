@@ -141,6 +141,23 @@ the API and `/retro/physical-media`. Physical qualification is fixture-only;
 real optical, USB, Greaseweazle, and Debian 13 hardware qualification remain
 unperformed.
 
+## M6.10 Local-first seed qualification
+
+`rab qualify local-seed` records versioned host, disposable storage, inbox,
+adapter discovery, unified-UX, capacity, and backup-policy evidence. Readiness
+is profile-specific: `local-seed-optical`, `local-seed-usb`,
+`local-seed-floppy`, and `local-seed-full` do not block one another, while
+missing hardware remains `NOT_PERFORMED`. Fixture-tested software is not
+physical qualification. `rab qualify status`, `report`, and `backup-ack`
+provide machine-readable operator evidence; `rab seed create/add/status`
+provides optional planning metadata for unknown or known local material.
+
+Recommended order: qualify host/storage, preserve owned/local media, preserve
+purchased downloads through the watched inbox, audit/fixity/backup the seed,
+then opt in to large online bootstrap. A backup acknowledgement without a
+successful restore test is reported as `WARNING`; RAB does not pretend to
+implement or verify replicas.
+
 ## Retro-Compatible Web v1
 
 RAB provides an optional server-rendered read-only web interface through

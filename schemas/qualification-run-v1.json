@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/qualification-run-v1.json",
+  "title": "RAB Qualification Run v1",
+  "type": "object",
+  "required": ["schema", "version", "qualification_id", "profile", "checks", "readiness"],
+  "properties": {
+    "schema": {"const": "rab-qualification-run-v1"},
+    "version": {"const": 1},
+    "qualification_id": {"type": "string"},
+    "profile": {"type": "string"},
+    "checks": {"type": "array"},
+    "readiness": {"type": "object"},
+    "warnings": {"type": "array"},
+    "limitations": {"type": "array"}
+  },
+  "additionalProperties": true
+}

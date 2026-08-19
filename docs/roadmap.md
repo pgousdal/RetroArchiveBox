@@ -366,6 +366,27 @@ qualification command coverage, contained-object analysis, deeper optical
 capture, tape/cartridge adapters, and public derived products. Museum-grade
 status remains **NO**.
 
+## M6.10 Local-First Seed Readiness & Physical Qualification (2026-08-19)
+
+M6.10 adds immutable qualification runs, explicit readiness levels and
+profiles, disposable storage/inbox smoke tests, capacity headroom checks,
+backup/replica acknowledgement warnings, adapter-specific NOT_PERFORMED
+gates, seed planning metadata, CLI/API/RetroWeb reporting, and doctor status
+integration. It reuses existing capture, ingest, identity, malware, catalogue,
+broker, and physical UX boundaries without adding a capture engine or backup
+product.
+
+The available environment qualifies only deterministic host/storage/inbox and
+unified dry-run behavior. Optical, valuable USB, Greaseweazle, Amiga/C64, and
+Debian 13 physical-host qualification remain **NOT PERFORMED**. No backup
+replica or restore implementation is claimed. `FIXTURE_QUALIFIED` is therefore
+the conservative software state unless the operator records the required
+acknowledgement and real profile-specific evidence. Recommended follow-ons are
+real physical-host qualification, first local seed ingestion, contained-object
+discovery, native malware expansion, deeper optical qualification, online
+bootstrap activation, and public derived products. Museum-grade status remains
+**NO**.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

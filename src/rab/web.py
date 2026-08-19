@@ -16,6 +16,7 @@ from .local_ingest import IngestManager, WatchedInboxManager
 from .media import MediaManager, OpticalManager
 from .flux import FluxManager
 from .physical import PhysicalMediaOrchestrator
+from .qualification import QualificationManager
 from .tree_ingest import TreeIngestManager
 
 
@@ -83,6 +84,7 @@ class WebApplication:
             if route == "/inboxes": return self.inboxes(retro)
             if route == "/media": return self.media_jobs(retro)
             if route == "/physical-media": return self.physical_media(retro)
+            if route == "/qualification": return self.qualification(retro)
             if route == "/optical": return self.optical_jobs(retro)
             if route == "/flux": return self.flux_jobs(retro)
             if route.startswith("/source/"): return self.source(unquote(route.removeprefix("/source/")), retro)
@@ -111,7 +113,7 @@ class WebApplication:
     def home(self, retro):
         stats = self.broker.stats()
         content = '<p>Preservation-first archive browser.</p><form action="' + ("/retro" if retro else "/web") + '/search" method="get"><label for="q">Search:</label><input type="text" id="q" name="q" size="32" /><input type="submit" value="Search" /></form>'
-        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li><li><a href="' + ("/retro" if retro else "/web") + '/ingest">Local ingest</a></li><li><a href="' + ("/retro" if retro else "/web") + '/media">Media captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/physical-media">Unified physical media</a></li><li><a href="' + ("/retro" if retro else "/web") + '/optical">Optical captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/flux">Flux captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/products">Derived products</a></li></ul>'
+        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li><li><a href="' + ("/retro" if retro else "/web") + '/ingest">Local ingest</a></li><li><a href="' + ("/retro" if retro else "/web") + '/media">Media captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/physical-media">Unified physical media</a></li><li><a href="' + ("/retro" if retro else "/web") + '/qualification">Qualification</a></li><li><a href="' + ("/retro" if retro else "/web") + '/optical">Optical captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/flux">Flux captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/products">Derived products</a></li></ul>'
         content += '<p class="muted">Indexed resources: ' + _e(stats.get("resources", 0)) + '; resource sets: ' + _e(stats.get("resource_sets", 0)) + '.</p>'
         return 200, "text/html; charset=utf-8", self.page("Home", content, retro), None
 
@@ -204,6 +206,11 @@ class WebApplication:
         content += ''.join('<li>' + _e(x.get("session_id")) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("successful_captures")) + ' preserved / warnings ' + _e(x.get("warnings_count")) + ' / failures ' + _e(x.get("failures_count")) + '</li>' for x in sessions) or '<li>No physical ingest sessions recorded.</li>'
         content += '</ul>'
         return 200, "text/html; charset=utf-8", self.page("Unified Physical Media", content, retro), None
+
+    def qualification(self, retro):
+        value = QualificationManager(self.catalogue.archive).public_status(); checks = value.get("check_states", {}); prefix = "/retro" if retro else "/web"
+        content = '<p>Read-only qualification evidence. Implemented is not physically qualified.</p><p>Readiness: <strong>' + _e(value.get("readiness", {}).get("level")) + '</strong> / profile ' + _e(value.get("readiness", {}).get("profile")) + '</p><p>Runs recorded: ' + _e(value.get("runs")) + '; latest: ' + _e(value.get("latest")) + '</p><h3>Backup/replica</h3><p>' + _e(value.get("backup", {}).get("state")) + ': ' + _e(value.get("backup", {}).get("limitations")) + '</p><h3>Checks</h3><ul>' + ''.join('<li>' + _e(item) + ': ' + _e(state) + '</li>' for item, state in checks.items()) + '</ul>'
+        return 200, "text/html; charset=utf-8", self.page("Qualification", content, retro), None
 
     def optical_jobs(self, retro):
         jobs = OpticalManager(self.catalogue.archive).jobs(); content = '<p>Read-only optical capture status.</p><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No optical capture jobs recorded.</p>'

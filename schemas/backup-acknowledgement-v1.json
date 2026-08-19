@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/backup-acknowledgement-v1.json",
+  "title": "RAB Backup Acknowledgement v1",
+  "type": "object",
+  "required": ["schema", "acknowledgement_id", "primary", "replica_configured", "restore_test"],
+  "properties": {
+    "schema": {"const": "rab-backup-acknowledgement-v1"},
+    "acknowledgement_id": {"type": "string"},
+    "primary": {"type": "string"},
+    "replica_configured": {"type": "boolean"},
+    "restore_test": {"enum": ["PASS", "FAIL", "NOT_PERFORMED"]}
+  },
+  "additionalProperties": true
+}

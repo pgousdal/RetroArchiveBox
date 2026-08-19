@@ -99,8 +99,10 @@ class PhysicalMediaOrchestrator:
 
     def public_candidates(self) -> list[dict]:
         result = []
-        for item in self.discover():
+        for index, item in enumerate(self.discover()):
             value = {key: data for key, data in item.items() if key != "device"}
+            value["candidate_id"] = item["kind"] + ":" + str(index)
+            value["display_description"] = item["kind"] + " candidate"
             value["device_summary"] = {key: data for key, data in value.get("device_summary", {}).items() if key not in {"device", "path"}}
             result.append(value)
         return result

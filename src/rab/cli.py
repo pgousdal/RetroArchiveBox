@@ -27,6 +27,7 @@ from .local_ingest import IngestManager, ProvenanceClass, WatchedInboxManager
 from .media import MediaManager, OpticalManager
 from .flux import FluxManager, FloppyProfile, VerificationPolicy
 from .physical import PhysicalMediaOrchestrator
+from .qualification import QualificationManager, QualificationProfile, SeedPlanManager
 from .tree_ingest import TreeIngestManager
 
 
@@ -69,6 +70,20 @@ def parser() -> argparse.ArgumentParser:
     audit = sub.add_parser("audit")
     audit.add_argument("--fixity", action="store_true")
     sub.add_parser("doctor")
+    qualify = sub.add_parser("qualify", help="run local-first host/storage/media qualification")
+    qualify_sub = qualify.add_subparsers(dest="qualify_command", required=True)
+    qualify_sub.add_parser("status")
+    for name in ("host", "storage", "optical", "block", "flux", "inbox", "physical-media"):
+        check = qualify_sub.add_parser(name); check.add_argument("--profile", choices=[x.value for x in QualificationProfile], default=QualificationProfile.LOCAL_SEED_MINIMAL.value); check.add_argument("--operator"); check.add_argument("--expected-local-seed-bytes", type=int)
+    local_seed = qualify_sub.add_parser("local-seed"); local_seed.add_argument("--profile", choices=[x.value for x in QualificationProfile], default=QualificationProfile.LOCAL_SEED_MINIMAL.value); local_seed.add_argument("--operator"); local_seed.add_argument("--expected-local-seed-bytes", type=int)
+    qualify_report = qualify_sub.add_parser("report"); qualify_report.add_argument("qualification_id")
+    backup_ack = qualify_sub.add_parser("backup-ack"); backup_ack.add_argument("--replica"); backup_ack.add_argument("--last-backup"); backup_ack.add_argument("--restore-test", choices=["PASS", "FAIL", "NOT_PERFORMED"], default="NOT_PERFORMED"); backup_ack.add_argument("--operator")
+    seed = sub.add_parser("seed", help="plan local-first seed material")
+    seed_sub = seed.add_subparsers(dest="seed_command", required=True)
+    seed_create = seed_sub.add_parser("create"); seed_create.add_argument("plan_id"); seed_create.add_argument("--collection"); seed_create.add_argument("--notes", default="")
+    seed_add = seed_sub.add_parser("add"); seed_add.add_argument("plan_id"); seed_add.add_argument("--label", required=True); seed_add.add_argument("--category", required=True); seed_add.add_argument("--expected-count", type=int); seed_add.add_argument("--nominal-bytes", type=int); seed_add.add_argument("--provenance", default="unknown"); seed_add.add_argument("--notes", default="")
+    seed_show = seed_sub.add_parser("show"); seed_show.add_argument("plan_id")
+    seed_sub.add_parser("list")
     source = sub.add_parser("source", help="inspect and operate configured sources")
     source_sub = source.add_subparsers(dest="source_command", required=True)
     source_sub.add_parser("list")
@@ -275,7 +290,20 @@ def run(args: argparse.Namespace) -> dict | list:
     if args.command == "audit":
         return archive.audit()
     if args.command == "doctor":
-        return archive.doctor()
+        return {**archive.doctor(), "qualification": QualificationManager(archive).status()}
+    if args.command == "qualify":
+        manager = QualificationManager(archive)
+        if args.qualify_command == "status": return manager.status()
+        if args.qualify_command == "report": return manager.report(args.qualification_id)
+        if args.qualify_command == "backup-ack": return manager.acknowledge_backup(replica=args.replica, last_backup=args.last_backup, restore_test=args.restore_test, operator=args.operator)
+        only = None if args.qualify_command == "local-seed" else args.qualify_command
+        return manager.run(profile=args.profile, only=only, operator=args.operator, expected_local_seed_bytes=args.expected_local_seed_bytes)
+    if args.command == "seed":
+        plans = SeedPlanManager(archive)
+        if args.seed_command == "create": return plans.create(args.plan_id, collection=args.collection, notes=args.notes)
+        if args.seed_command == "add": return plans.add(args.plan_id, label=args.label, category=args.category, expected_count=args.expected_count, nominal_bytes=args.nominal_bytes, provenance=args.provenance, notes=args.notes)
+        if args.seed_command == "show": return plans.show(args.plan_id)
+        return plans.list()
     if args.command == "source":
         if args.source_command == "list":
             return [x.public() for x in registry.load().values()]
