@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/resource-manifest-v1.json",
+  "title": "RAB Resource Manifest v1",
+  "type": "object",
+  "required": ["schema", "resource_id", "resolved_at", "objects", "object_ids", "rights", "delivery_mode"],
+  "properties": {
+    "schema": {"const": "rab-resource-manifest-v1"},
+    "resource_id": {"type": "string", "minLength": 1},
+    "resolved_at": {"type": "string"},
+    "objects": {"type": "array", "items": {"type": "object", "required": ["role", "sha256"]}},
+    "object_ids": {"type": "array", "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}},
+    "rights": {"enum": ["REDISTRIBUTABLE", "PRIVATE_LICENSED", "RESTRICTED", "UNKNOWN"]},
+    "delivery_mode": {"enum": ["STREAM", "COPY", "MATERIALIZE", "MANIFEST_ONLY"]}
+  },
+  "additionalProperties": true
+}

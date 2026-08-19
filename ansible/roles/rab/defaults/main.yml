@@ -12,3 +12,5 @@ rab_api_lan_enabled: false
 rab_api_lan_bind: "127.0.0.1:8081"
 rab_api_lan_htpasswd_file: /etc/rab/api.htpasswd
 rab_api_lan_realm: "Retro Archive Box"
+rab_consumer_state_root: "{{ rab_root }}/consumer-state"
+rab_consumer_ids: []

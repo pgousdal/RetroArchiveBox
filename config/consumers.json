@@ -1,0 +1,12 @@
+{
+  "consumers": [
+    {
+      "consumer_id": "test-consumer",
+      "display_name": "Reference consumer",
+      "enabled": true,
+      "allowed_delivery_modes": ["STREAM", "COPY", "MATERIALIZE", "MANIFEST_ONLY"],
+      "local": true,
+      "rights_policy": "local-owner"
+    }
+  ]
+}

@@ -116,6 +116,26 @@ the accessible official-authority scope, with No-Intro and SPS limitations
 explicitly retained. Physical dumping, malware, and Archive.org work remain
 future milestones. Museum-grade status remains **NO**.
 
+## Consumer Resource Broker v1 (2026-08-19)
+
+The generic broker is complete for the offline qualification scope. It adds
+stable logical resource IDs, typed descriptors, source-independent exact and
+constrained resolution with explicit ambiguity/availability/policy states,
+package and multi-object resources, immutable resource-set generations,
+rights-aware consumer contexts, exact pin/lock manifests, authority constraints,
+dependency-cycle rejection, stable-ID streaming, isolated materialization,
+exact-object cache reuse, and rebuildable derived state. Consumer state is
+disposable and outside the preservation object tree. `test-consumer` is the only
+enabled reference consumer; ATM, WTM, UTM, UBB, and DRD remain generic,
+documented consumers, not RAB integrations.
+
+Qualification is deterministic and offline: an Aminet payload/readme resolves,
+pins, materializes byte-identically, reuses cache, and survives broker rebuild;
+rights resolution is separate from delivery; path isolation and ambiguity/
+dependency guards are tested. Ansible creates no consumer state unless
+explicitly configured. Malware analysis and approved on-demand acquisition are
+hooks only. Museum-grade status: NO.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

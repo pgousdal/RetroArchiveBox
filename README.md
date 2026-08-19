@@ -71,6 +71,28 @@ The database is an index, not the sole metadata store. Each object directory
 contains a canonical manifest and append-only JSON Lines event log sufficient
 to reconstruct the principal preservation catalogue.
 
+## Consumer Resource Broker v1
+
+The broker is the single generic delivery contract for future ATM, WTM, UTM,
+UBB, DRD, and other consumers. Stable logical IDs resolve to descriptors with
+immutable `sha256:` object IDs, package/set relationships, provenance, rights,
+availability, authority evidence, and future malware state. It never exposes an
+object-store path. Use `rab resource resolve`, `pin`, `materialize`, and
+`verify-lock`, `rab resource-set show`, and `rab consumer list`; the API provides
+the corresponding stable-ID resources and resource-set routes.
+
+Definitions and immutable set generations are JSON sidecars under
+`resource-metadata`; broker SQLite tables are disposable and rebuildable.
+Pinned `rab-resource-manifest-v1` files contain exact IDs, rights snapshots,
+dependencies, authority evidence, and delivery context, never payload bytes or
+filesystem paths. Delivery may stream, copy, materialize outside `objects`, or
+return a manifest only. Non-redistributable resources may resolve but are not
+public-deliverable. Consumer caches are disposable, exact-hash keyed, and
+isolated per consumer. RAB owns preservation identity and bytes; consumers own
+runtime behavior. A materialized copy is not a preservation master, and one
+master may serve many consumers. Malware is currently `NOT_SCANNED`, not a
+fabricated clean result. Museum-grade status remains unclaimed.
+
 See [docs/architecture.md](docs/architecture.md) and
 [docs/roadmap.md](docs/roadmap.md) for boundaries and milestone status.
 

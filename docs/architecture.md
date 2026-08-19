@@ -30,6 +30,47 @@ future public redistribution: only REDISTRIBUTABLE occurrences may be served
 in a public mode; PRIVATE_LICENSED, RESTRICTED, and UNKNOWN remain blocked.
 Range requests are bounded to the object and streamed in chunks.
 
+## Consumer Resource Broker v1
+
+The broker is a derived consumer plane above M1 preservation and the M2/M3
+catalogue. A resource is distinct from an object: it may name one object, a
+package generation, multiple related files, or a resource set. Initial generic
+kinds cover software packages, disk images, optical discs, ROMs, firmware,
+operating-system media, BBS software, tools, drivers, documentation, and sets.
+IDs such as `aminet:comm/term/ncomm307`,
+`resource:amiga:kickstart:3.1:a1200`, `resource-set:amiga:a1200-os31:1`, and
+`sha256:<64 hex>` are logical contracts; storage paths are never exposed.
+
+Resolution is deterministic and evidence-bearing. Exact IDs and constrained
+queries return `RESOLVED`, `NOT_FOUND`, `AMBIGUOUS`, `RIGHTS_DENIED`,
+`UNAVAILABLE`, `INCOMPLETE`, or `POLICY_BLOCKED`; multiple candidates are
+never silently selected. Descriptors include sizes/hashes, provenance, rights,
+authority assertions, availability, dependencies, delivery policy, and a
+future-compatible malware status enum. Version strings are exact strings.
+TOSEC/Redump requirements are optional evidence constraints and never alter
+preservation identity.
+
+Consumers provide an ID, type, local/remote status, purpose, delivery mode,
+rights context, and optional machine profile. Rights are separate from
+recognition: local-owner delivery may be policy-permitted for private material,
+while public delivery requires `REDISTRIBUTABLE`. Modes are `STREAM`, `COPY`,
+`MATERIALIZE`, and `MANIFEST_ONLY`. Existing verified chunked downloads are
+reused for streaming; materialization copies in chunks and preserves structured
+relationships without flattening BIN/CUE or similar assets.
+
+Pinning produces `rab-resource-manifest-v1`, a commit-friendly lock containing
+the resource ID, exact object IDs/hashes, package generation, consumer context,
+rights snapshot, dependencies, authority evidence, and delivery mode. Resource
+sets retain roles and individual identities; later content creates a new
+generation. Definitions and set generations are immutable JSON sidecars under
+`resource-metadata`; broker SQLite and consumer caches are disposable. Rebuild
+therefore restores logical resolution without touching masters. Workspaces are
+controlled beneath `consumer-state/<consumer>` and reject traversal, symlink
+escape, unsafe names, and collisions. Broker operational events do not append
+ordinary-read preservation events. BBS use stops at staging; Time Machine and
+DRD consumers own runtime behavior. Malware analysis and approved on-demand
+acquisition are future policy hooks only.
+
 ## Production exposure qualification
 
 The Debian 13 qualification appliance proved first/second Ansible runs of

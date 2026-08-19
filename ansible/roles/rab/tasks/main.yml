@@ -81,6 +81,25 @@
     group: "{{ rab_group }}"
     mode: "0750"
 
+- name: Create disposable consumer state root
+  ansible.builtin.file:
+    path: "{{ rab_consumer_state_root }}"
+    state: directory
+    owner: "{{ rab_user }}"
+    group: "{{ rab_group }}"
+    mode: "0750"
+
+- name: Create explicitly configured consumer workspaces and caches
+  ansible.builtin.file:
+    path: "{{ rab_consumer_state_root }}/{{ pair[0] }}/{{ pair[1] }}"
+    state: directory
+    owner: "{{ rab_user }}"
+    group: "{{ rab_group }}"
+    mode: "0750"
+  loop: "{{ rab_consumer_ids | product(['workspaces', 'cache']) | list }}"
+  loop_control:
+    loop_var: pair
+
 - name: Install explicit source worker template without enabling synchronization
   ansible.builtin.template:
     src: rab-source@.service.j2

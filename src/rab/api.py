@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import os
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -12,15 +13,17 @@ from .errors import IntegrityError, PolicyError
 from .authority import Authority
 from .redump import RedumpAuthority
 from .additional_authorities import AdditionalAuthority
+from .broker import BrokerError, ConsumerContext, ConsumerRegistry, DeliveryMode, ResourceBroker, ResolutionState
 
 
 class CatalogueAPI:
     """Read-only, bounded API facade shared by HTTP and tests."""
-    def __init__(self, catalogue: Catalogue, registry=None):
+    def __init__(self, catalogue: Catalogue, registry=None, consumer_registry=None):
         self.catalogue, self.registry = catalogue, registry
+        self.broker = ResourceBroker(catalogue.archive, registry=consumer_registry)
 
-    def dispatch(self, method: str, path: str, query: dict[str, list[str]] | None = None):
-        if method != "GET":
+    def dispatch(self, method: str, path: str, query: dict[str, list[str]] | None = None, body: dict | None = None):
+        if method not in {"GET", "POST"} or (method == "POST" and not urlparse(path).path.rstrip("/").endswith("/resources/resolve")):
             return 405, {"error": "method_not_allowed"}
         if len(path) > 8192:
             return 414, {"error": "request_too_large"}
@@ -28,11 +31,16 @@ class CatalogueAPI:
         query = query or parse_qs(parsed.query)
         route = parsed.path.rstrip("/")
         try:
-            return self._dispatch(route, query)
+            return self._dispatch(route, query, body or {})
+        except BrokerError as exc:
+            code = 409 if exc.state == ResolutionState.AMBIGUOUS else 403 if exc.state in {ResolutionState.RIGHTS_DENIED, ResolutionState.POLICY_BLOCKED} else 404
+            return code, {"error": exc.state.value, "message": str(exc)}
         except RabError:
             return 404, {"error": "not_found"}
+        except ValueError:
+            return 400, {"error": "invalid_request"}
 
-    def _dispatch(self, route, query):
+    def _dispatch(self, route, query, body):
         if route == "/api/v1/status":
             status = self.catalogue.status(read_only=True)
             status["preservation_store"] = self.catalogue.archive.objects.is_dir()
@@ -42,6 +50,34 @@ class CatalogueAPI:
             return 200, [x.public() for x in self.registry.load().values()] if self.registry else []
         if route == "/api/v1/authorities":
             return 200, Authority(self.catalogue.archive).list()
+        if route == "/api/v1/consumers":
+            return 200, self.broker.registry.list()
+        if route == "/api/v1/resources":
+            allowed = {"platform", "ecosystem", "os", "architecture", "hardware", "kind", "name", "version", "title", "source"}
+            return 200, self.broker.search(**{k: query[k][0] for k in allowed if k in query})
+        if route == "/api/v1/resources/resolve":
+            request = {**body, **{k: v[0] for k, v in query.items() if v}}
+            resource_id = request.pop("resource_id", None)
+            context = ConsumerContext(consumer_id=request.pop("consumer_id", "test-consumer"),
+                                      delivery_mode=DeliveryMode(request.pop("delivery_mode", "MANIFEST_ONLY")),
+                                      rights_context=request.pop("rights_context", "local-owner"))
+            return 200, self.broker.resolve(resource_id, context=context, authority=request.pop("authority", None), **request)
+        m = re.fullmatch(r"/api/v1/resources/(.+)/(content|pin|materialize)", route)
+        if m:
+            resource_id, action = unquote(m.group(1)), m.group(2)
+            if action == "content":
+                resolved = self.broker.resolve(resource_id, context=ConsumerContext(delivery_mode=DeliveryMode.STREAM))
+                item = resolved["objects"][0]
+                return 200, {"download": self._public_download(self.download_object(item["sha256"], public=False))}
+            if action == "pin":
+                return 200, self.broker.pin(resource_id)
+            return 200, self.broker.materialize(resource_id, body.get("consumer_id", "test-consumer"))
+        m = re.fullmatch(r"/api/v1/resources/(.+)", route)
+        if m:
+            return 200, self.broker.show(unquote(m.group(1)))
+        m = re.fullmatch(r"/api/v1/resource-sets/(.+)", route)
+        if m:
+            return 200, self.broker.show_set(unquote(m.group(1)))
         m = re.fullmatch(r"/api/v1/authorities/([0-9a-f]{64})/records", route)
         if m:
             return 200, AdditionalAuthority(self.catalogue.archive).records(m.group(1))
@@ -121,7 +157,8 @@ def run_server(archive, registry, host="127.0.0.1", port=8000):
 def build_server(archive, registry, host="127.0.0.1", port=8000):
     catalogue = Catalogue(archive)
     catalogue.validate_readonly()
-    api = CatalogueAPI(catalogue, registry)
+    consumer_path = Path(__file__).parents[2] / "config" / "consumers.json"
+    api = CatalogueAPI(catalogue, registry, ConsumerRegistry(consumer_path) if consumer_path.is_file() else None)
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802
@@ -139,6 +176,18 @@ def build_server(archive, registry, host="127.0.0.1", port=8000):
                 self.send_response(403 if isinstance(exc, PolicyError) else 404)
                 self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body)))
                 self.end_headers(); self.wfile.write(body)
+        def do_POST(self):  # noqa: N802
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length > 1024 * 1024:
+                    self.send_error(413, "request too large"); return
+                body = json.loads(self.rfile.read(length) or b"{}")
+                status, payload = api.dispatch("POST", self.path, body=body)
+                encoded = json.dumps(payload, sort_keys=True).encode()
+                self.send_response(status); self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(encoded))); self.end_headers(); self.wfile.write(encoded)
+            except (RabError, OSError, ValueError, json.JSONDecodeError):
+                self.send_error(400, "invalid request")
         def _send_file(self, download):
             path = download["path"]; size = download["size"]; start, end = 0, size - 1
             value = self.headers.get("Range")

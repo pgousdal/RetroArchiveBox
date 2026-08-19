@@ -16,6 +16,7 @@ from .api import run_server
 from .authority import Authority
 from .redump import RedumpAuthority
 from .additional_authorities import AdditionalAuthority
+from .broker import ConsumerContext, ConsumerRegistry, DeliveryMode, ResourceBroker, ResourceKind
 
 
 def parser() -> argparse.ArgumentParser:
@@ -134,6 +135,27 @@ def parser() -> argparse.ArgumentParser:
     api = sub.add_parser("api", help="run the read-only catalogue API")
     api.add_argument("--host", default="127.0.0.1")
     api.add_argument("--port", type=int, default=8000)
+    resource = sub.add_parser("resource", help="resolve and deliver consumer resources")
+    resource_sub = resource.add_subparsers(dest="resource_command", required=True)
+    resource_search = resource_sub.add_parser("search")
+    for name in ("platform", "ecosystem", "os", "architecture", "hardware", "kind", "name", "version", "title", "source"):
+        resource_search.add_argument("--" + name)
+    resource_search.add_argument("--json", action="store_true")
+    resource_show = resource_sub.add_parser("show"); resource_show.add_argument("resource_id")
+    resource_resolve = resource_sub.add_parser("resolve"); resource_resolve.add_argument("resource_id", nargs="?")
+    for name in ("platform", "ecosystem", "os", "architecture", "hardware", "kind", "name", "version", "title", "source"):
+        resource_resolve.add_argument("--" + name)
+    resource_resolve.add_argument("--consumer", default="test-consumer"); resource_resolve.add_argument("--delivery-mode", choices=[x.value for x in DeliveryMode], default="MANIFEST_ONLY")
+    resource_pin = resource_sub.add_parser("pin"); resource_pin.add_argument("resource_id"); resource_pin.add_argument("--consumer", default="test-consumer")
+    materialize = resource_sub.add_parser("materialize"); materialize.add_argument("resource_id"); materialize.add_argument("--consumer", default="test-consumer"); materialize.add_argument("--output", type=Path)
+    resource_verify = resource_sub.add_parser("verify-lock"); resource_verify.add_argument("manifest", type=Path)
+    resource_verify_object = resource_sub.add_parser("verify"); resource_verify_object.add_argument("resource_id")
+    resource_set = sub.add_parser("resource-set", help="inspect resource sets")
+    resource_set_sub = resource_set.add_subparsers(dest="resource_set_command", required=True)
+    resource_set_show = resource_set_sub.add_parser("show"); resource_set_show.add_argument("set_id")
+    resource_set_resolve = resource_set_sub.add_parser("resolve"); resource_set_resolve.add_argument("set_id")
+    consumer = sub.add_parser("consumer", help="inspect broker consumers")
+    consumer_sub = consumer.add_subparsers(dest="consumer_command", required=True); consumer_sub.add_parser("list"); consumer_sub.add_parser("status")
     return p
 
 
@@ -245,6 +267,32 @@ def run(args: argparse.Namespace) -> dict | list:
     if args.command == "api":
         run_server(archive, registry, args.host, args.port)
         return {"outcome": "STOPPED"}
+    if args.command == "resource" or args.command == "resource-set" or args.command == "consumer":
+        broker = ResourceBroker(archive, registry=ConsumerRegistry(Path(__file__).parents[2] / "config" / "consumers.json"))
+        if args.command == "consumer":
+            return broker.registry.list() if args.consumer_command == "list" else broker.stats()
+        if args.command == "resource-set":
+            return broker.show_set(args.set_id)
+        if args.resource_command == "show":
+            return broker.show(args.resource_id)
+        if args.resource_command == "search":
+            values = {name: getattr(args, name) for name in ("platform", "ecosystem", "os", "architecture", "hardware", "kind", "name", "version", "title", "source") if getattr(args, name) is not None}
+            return broker.search(**values)
+        if args.resource_command == "resolve":
+            if args.resource_id and ":" in args.resource_id and not args.resource_id.startswith(("sha256:", "resource:")):
+                broker.register_package(args.resource_id)
+            values = {name: getattr(args, name) for name in ("platform", "ecosystem", "os", "architecture", "hardware", "kind", "name", "version", "title", "source") if getattr(args, name) is not None}
+            return broker.resolve(args.resource_id, context=ConsumerContext(consumer_id=args.consumer, delivery_mode=DeliveryMode(args.delivery_mode)), **values)
+        if args.resource_command == "pin":
+            return broker.pin(args.resource_id, context=ConsumerContext(consumer_id=args.consumer))
+        if args.resource_command == "materialize":
+            return broker.materialize(args.resource_id, args.consumer, args.output)
+        if args.resource_command == "verify":
+            descriptor = broker.show(args.resource_id)
+            for item in descriptor["objects"]:
+                archive.verify(item["sha256"], record_event=False)
+            return {"outcome": "PASS", "resource_id": args.resource_id, "objects": descriptor["preservation_objects"]}
+        return broker.verify_manifest(args.manifest)
     raise AssertionError(args.command)
 
 
