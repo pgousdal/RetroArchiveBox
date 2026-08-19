@@ -177,10 +177,15 @@ def parser() -> argparse.ArgumentParser:
     malware_sub = malware.add_subparsers(dest="malware_command", required=True)
     malware_status = malware_sub.add_parser("status"); malware_status.add_argument("identifier", nargs="?")
     malware_scanners = malware_sub.add_parser("scanners")
+    malware_profiles = malware_sub.add_parser("profiles")
     malware_scanner = malware_sub.add_parser("scanner"); malware_scanner.add_argument("scanner_id")
     malware_scan = malware_sub.add_parser("scan"); malware_scan.add_argument("identifier"); malware_scan.add_argument("--scanner", required=True); malware_scan.add_argument("--timeout", type=int, default=300)
     malware_observations = malware_sub.add_parser("observations"); malware_observations.add_argument("identifier", nargs="?")
     malware_show = malware_sub.add_parser("show"); malware_show.add_argument("observation_id")
+    malware_analyze = malware_sub.add_parser("analyze"); malware_analyze.add_argument("identifier"); malware_analyze.add_argument("--profile", default="current-free"); malware_analyze.add_argument("--scanner", action="append", dest="scanner_ids"); malware_analyze.add_argument("--max-scanners", type=int, default=16); malware_analyze.add_argument("--timeout", type=int, default=300)
+    malware_compare = malware_sub.add_parser("compare"); malware_compare.add_argument("identifier")
+    malware_sub.add_parser("analysis-sets")
+    malware_sub.add_parser("analysis-jobs")
     malware_sub.add_parser("verify")
     malware_sub.add_parser("rebuild")
     acquisition = sub.add_parser("acquisition", help="plan and perform policy-selected acquisition")
@@ -405,15 +410,20 @@ def run(args: argparse.Namespace) -> dict | list:
         run_web_server(archive, registry, args.host, args.port, retro_only=args.retro_only)
         return {"outcome": "STOPPED"}
     if args.command == "malware":
-        malware_store = MalwareStore(archive)
+        malware_store = MalwareStore(archive, extended=True)
         if args.malware_command == "status":
             return malware_store.status(args.identifier) if args.identifier else malware_store.stats()
         if args.malware_command == "scanners":
             return malware_store.scanners_status()
+        if args.malware_command == "profiles": return malware_store.scanner_profiles()
         if args.malware_command == "scanner":
             return malware_store.scanner_status(args.scanner_id)
         if args.malware_command == "scan":
             return malware_store.scan(args.identifier, args.scanner, timeout=args.timeout)
+        if args.malware_command == "analyze": return malware_store.run_analysis(args.identifier, profile=args.profile, scanner_ids=args.scanner_ids, max_scanners=args.max_scanners, timeout=args.timeout)
+        if args.malware_command == "compare": return malware_store.compare(args.identifier)
+        if args.malware_command == "analysis-sets": return malware_store.analysis_sets()
+        if args.malware_command == "analysis-jobs": return malware_store.analysis_jobs()
         if args.malware_command == "observations":
             return malware_store.observations(args.identifier)
         if args.malware_command == "show":

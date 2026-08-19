@@ -25,6 +25,13 @@
     update_cache: true
   when: rab_clamav_enabled
 
+- name: Install optional Debian YARA rule engine
+  ansible.builtin.apt:
+    name: yara
+    state: present
+    update_cache: true
+  when: rab_yara_enabled
+
 - name: Install optional Debian optical track tools
   ansible.builtin.apt:
     name:

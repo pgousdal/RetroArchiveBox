@@ -383,6 +383,29 @@ native filesystem analyzers, contained-object malware analysis, real local
 seed recursive analysis, deeper optical formats, online bootstrap activation,
 and public derived products. Museum-grade status remains **NO**.
 
+## M7.1 Historical & Native Malware Analysis Framework (2026-08-19)
+
+M7.1 extends the M5 malware evidence plane with scanner classes, explicit
+coverage, `NOT_DETECTED` and conflict semantics, definitions/ruleset identity,
+historical Linux and native-retro runner contracts, YARA capability, LMD/KVRT
+investigation states, multi-engine jobs, immutable analysis sets, broker
+conflict handling, API/RetroWeb views, and fixture qualification. ClamAV and
+the existing disposable read-only copy boundary remain the current operational
+path. No proprietary engines, historical binaries, definitions, or real retro
+runtime were bundled.
+
+Fixture qualification covers historical/native/rule observations, temporal
+rescan evidence, unavailable engines, definitions missing, coverage, conflicts,
+remediation-disabled behavior, master non-mutation, API redaction, and
+RetroWeb. YARA current upstream CLI behavior was inspected. LMD official
+material was inspected but its response/remediation model is not accepted as
+an automatic RAB engine; current KVRT official automation/licensing was not
+qualified. Real ClamAV/YARA/LMD/KVRT, historical Linux, Amiga/DOS/Atari
+native, and Debian 13 qualification remain **NOT PERFORMED**. Follow-ons are
+M7.1a current free-engine qualification, M7.1b historical snapshots, M7.1c
+Amiga native runtime, M7.1d DOS native runtime, and later Atari/native malware
+and public metadata products. Museum-grade status remains **NO**.
+
 ## M6.10 Local-First Seed Readiness & Physical Qualification (2026-08-19)
 
 M6.10 adds immutable qualification runs, explicit readiness levels and

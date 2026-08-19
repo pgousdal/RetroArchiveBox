@@ -403,6 +403,48 @@ eligible for later malware and authority processing; `NOT_SCANNED` and
 `NOT_CHECKED` remain honest states. The containment product foundation emits
 metadata-only relationship maps through the existing `ProductBuilder`.
 
+## Historical & Native Malware Analysis (M7.1)
+
+M7.1 extends the existing `MalwareStore`, observation sidecars, raw evidence,
+and disposable-copy boundary. It does not create a second malware database or
+trust hierarchy. `ScannerClass` distinguishes current host, current isolated,
+historical Linux, native retro, and rule engines. `Coverage` distinguishes
+opaque raw-container scans, extracted files, filesystem/archive content, and
+native-media scans. Every observation retains scanner class, executable/tool
+identity, definitions/ruleset identity, target representation/logical path,
+adapter version, exit/limitations, remediation capability, and timestamp.
+
+The legacy `CLEAN` result remains readable for M5 compatibility, but new
+evidence can use `NOT_DETECTED`; these are not universal clean claims.
+Aggregate views preserve individual observations, report `CONFLICTING` when
+`DETECTED` and `NOT_DETECTED` disagree, and use incomplete/failure states for
+missing tools, definitions, timeouts, and unsupported coverage. Historical
+observations are never overwritten, so the same object can form a malware
+time-series across signature sets and engines.
+
+`HistoricalScannerAdapter` and `NativeRetroScannerAdapter` accept only
+operator/fixture-supplied isolated runners and record product/version,
+definitions identity, guest/runtime profile, and source object. A future Amiga,
+DOS, or Atari runtime can request OS/scanner resources through the existing
+Resource Broker rather than embedding them in malware code. Remediation is
+always disabled by RAB; remediation-capable scanners can only operate on a
+disposable copy and any modified output is discarded. `RuleEngineScanner`
+uses the documented YARA argument contract, bounded output, and ruleset hash.
+
+LMD and KVRT are capability/investigation entries only, not silently installed
+or claimed as automation-qualified. Commercial scanners remain disabled and
+license-bound. Historical scanner installers, definitions, and rule sets are
+preserved separately when rights permit and are never automatically published.
+
+Multi-engine jobs and immutable analysis sets are stored under the existing
+malware metadata tree. `current-free` includes ClamAV/YARA/LMD/KVRT capability
+slots; absent engines create warning observations rather than destroying the
+job. The existing broker `deny-detected` policy also blocks conflicting
+aggregate evidence, while `require-analysis` remains conservative about
+unknown/unscanned objects. CLI/API/RetroWeb expose scanner inventory, profiles,
+analysis jobs, analysis sets, coverage, and disagreement without workspace or
+private-path leakage.
+
 ## Optical Media Ingest (M6.5)
 
 Optical preservation distinguishes a physical medium, inspection/layout

@@ -175,6 +175,26 @@ compression ratio, and elapsed time are bounded. Traversal, symlink, special
 file, malformed archive, and archive-bomb conditions stop safely and remain
 analysis evidence. Analysis may fail without invalidating preservation.
 
+## M7.1 Historical and native malware evidence
+
+RAB preserves malware observations rather than cleaning content. Existing
+ClamAV remains available, while scanner classes now include current host,
+current isolated, historical Linux, native retro, and rule engines. YARA is a
+bounded optional rule-engine adapter based on its documented `yara RULES
+TARGET` interface. Historical Linux and native Amiga/DOS/Atari profiles use
+fixture/operator-supplied runners; no proprietary scanner binaries or
+definitions are bundled. LMD is recorded as not automation-qualified because
+its official distribution includes response/remediation features, and current
+KVRT automation/licensing was not qualified.
+
+Observations retain scanner/adapter class, coverage, definitions/ruleset
+identity, target representation/logical path, timestamps, limitations, and
+remediation capability. `NOT_DETECTED` is not `CLEAN`; conflicting engines are
+preserved and aggregate as `CONFLICTING`. Historical scanner snapshots and
+signature sets should themselves enter RAB through ordinary preservation and
+rights policy. Scanner analysis always receives a disposable copy and never
+replaces a master.
+
 ## Retro-Compatible Web v1
 
 RAB provides an optional server-rendered read-only web interface through

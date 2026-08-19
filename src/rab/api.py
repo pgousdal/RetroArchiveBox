@@ -137,21 +137,28 @@ class CatalogueAPI:
             return 200, Authority(self.catalogue.archive).list()
         if route == "/api/v1/consumers":
             return 200, self.broker.registry.list()
-        malware = MalwareStore(self.catalogue.archive, read_only=True)
+        malware = MalwareStore(self.catalogue.archive, read_only=True, extended=True)
         if route == "/api/v1/malware/status":
             return 200, malware.stats()
         if route == "/api/v1/malware/scanners":
-            return 200, malware.scanners_status()
+            return 200, [malware.public_scanner_status(x) for x in malware.scanners_status()]
+        if route == "/api/v1/malware/profiles": return 200, malware.scanner_profiles()
+        if route == "/api/v1/malware/analysis-sets": return 200, malware.analysis_sets()
+        if route == "/api/v1/malware/analysis-jobs": return 200, [malware.public_analysis_job(x) for x in malware.analysis_jobs()]
+        m = re.fullmatch(r"/api/v1/malware/analysis-jobs/([0-9a-f]+)", route)
+        if m:
+            values = [x for x in malware.analysis_jobs() if x.get("job_id") == m.group(1)]
+            return (200, malware.public_analysis_job(values[0])) if values else (404, {"error": "not_found"})
         m = re.fullmatch(r"/api/v1/malware/scanners/([a-z0-9-]+)", route)
         if m:
-            return 200, malware.scanner_status(m.group(1))
+            return 200, malware.public_scanner_status(malware.scanner_status(m.group(1)))
         m = re.fullmatch(r"/api/v1/malware/observations/([0-9a-f]+)", route)
         if m:
-            return 200, malware.show(m.group(1))
+            return 200, malware.public_observation(malware.show(m.group(1)))
         m = re.fullmatch(r"/api/v1/resources/(.+)/malware", route)
         if m:
             descriptor = self.broker.show(unquote(m.group(1)))
-            observations = [observation for item in descriptor.get("objects", []) for observation in malware.observations(item["sha256"])]
+            observations = [malware.public_observation(observation) for item in descriptor.get("objects", []) for observation in malware.observations(item["sha256"])]
             return 200, {"state": aggregate(x["result"] for x in observations).value if observations else "UNKNOWN", "observations": observations, "count": len(observations)}
         if route == "/api/v1/resources":
             allowed = {"platform", "ecosystem", "os", "architecture", "hardware", "kind", "name", "version", "title", "source"}
@@ -218,7 +225,9 @@ class CatalogueAPI:
         m = re.fullmatch(r"/api/v1/objects/(?:sha256:)?([0-9a-f]{64})/malware(?:/(observations))?", route)
         if m:
             identifier = "sha256:" + m.group(1)
-            return 200, malware.observations(identifier) if m.group(2) else malware.status(identifier)
+            return 200, [malware.public_observation(x) for x in malware.observations(identifier)] if m.group(2) else {**malware.status(identifier), "observations": [malware.public_observation(x) for x in malware.status(identifier)["observations"]]}
+        m = re.fullmatch(r"/api/v1/objects/(?:sha256:)?([0-9a-f]{64})/malware/compare", route)
+        if m: return 200, {**malware.compare("sha256:" + m.group(1)), "observations": [malware.public_observation(x) for x in malware.compare("sha256:" + m.group(1))["observations"]]}
         m = re.fullmatch(r"/api/v1/objects/(?:sha256:)?([0-9a-f]{64})/download", route)
         if m:
             return 200, {"download": self._public_download(self.download_object("sha256:" + m.group(1), public=False))}

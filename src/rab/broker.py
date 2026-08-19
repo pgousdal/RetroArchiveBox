@@ -74,6 +74,8 @@ class MalwareStatus(StrEnum):
     SUSPICIOUS = "SUSPICIOUS"
     ERROR = "ERROR"
     UNSUPPORTED = "UNSUPPORTED"
+    CONFLICTING = "CONFLICTING"
+    INCOMPLETE = "INCOMPLETE"
 
 
 ResourceType = ResourceKind
@@ -433,7 +435,7 @@ class ResourceBroker:
         if public and rights != Rights.REDISTRIBUTABLE.value: return {"state": "RIGHTS_DENIED", "mode": context.delivery_mode.value}
         if not context.local and rights != Rights.REDISTRIBUTABLE.value: return {"state": "RESOLVED_LOCAL_ONLY", "mode": context.delivery_mode.value}
         malware_state = descriptor.get("malware_analysis", {}).get("status", MalwareStatus.NOT_SCANNED.value)
-        if context.malware_policy == "deny-detected" and malware_state == "MALWARE_DETECTED":
+        if context.malware_policy == "deny-detected" and malware_state in {"MALWARE_DETECTED", "CONFLICTING"}:
             return {"state": "POLICY_BLOCKED", "mode": context.delivery_mode.value, "reason": "malware detected"}
         if context.malware_policy == "require-analysis" and malware_state in {"UNKNOWN", MalwareStatus.NOT_SCANNED.value}:
             return {"state": "POLICY_BLOCKED", "mode": context.delivery_mode.value, "reason": "malware analysis required"}
