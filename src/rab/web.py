@@ -12,6 +12,8 @@ from .errors import PolicyError, RabError
 from .bootstrap import BootstrapStore
 from .identity import IdentityCatalogue
 from .products import ProductBuilder
+from .local_ingest import IngestManager
+from .media import MediaManager
 
 
 CSS = """body { font-family: Arial, Helvetica, sans-serif; margin: 1em; max-width: 60em; color: #111; background: #fff; }
@@ -74,6 +76,8 @@ class WebApplication:
             if route.startswith("/bootstrap/"): return self.bootstrap_job(unquote(route.removeprefix("/bootstrap/")), retro)
             if route.startswith("/identity/"): return self.identity(unquote(route.removeprefix("/identity/")), retro)
             if route == "/products": return self.products(retro)
+            if route == "/ingest": return self.ingest_jobs(retro)
+            if route == "/media": return self.media_jobs(retro)
             if route.startswith("/source/"): return self.source(unquote(route.removeprefix("/source/")), retro)
             if route.startswith("/resource/"): return self.resource(unquote(route.removeprefix("/resource/")), retro)
             if route.startswith("/set/"): return self.resource_set(unquote(route.removeprefix("/set/")), retro)
@@ -100,7 +104,7 @@ class WebApplication:
     def home(self, retro):
         stats = self.broker.stats()
         content = '<p>Preservation-first archive browser.</p><form action="' + ("/retro" if retro else "/web") + '/search" method="get"><label for="q">Search:</label><input type="text" id="q" name="q" size="32" /><input type="submit" value="Search" /></form>'
-        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li><li><a href="' + ("/retro" if retro else "/web") + '/products">Derived products</a></li></ul>'
+        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li><li><a href="' + ("/retro" if retro else "/web") + '/ingest">Local ingest</a></li><li><a href="' + ("/retro" if retro else "/web") + '/media">Media captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/products">Derived products</a></li></ul>'
         content += '<p class="muted">Indexed resources: ' + _e(stats.get("resources", 0)) + '; resource sets: ' + _e(stats.get("resource_sets", 0)) + '.</p>'
         return 200, "text/html; charset=utf-8", self.page("Home", content, retro), None
 
@@ -168,6 +172,15 @@ class WebApplication:
         values = ProductBuilder(self.catalogue.archive, identity=IdentityCatalogue(self.catalogue.archive, read_only=True)).list(); prefix = "/retro" if retro else "/web"
         content = '<p>Metadata-only derived products. Payload rights are unchanged.</p><ul>' + ''.join('<li>' + _e(x["product"]) + ': ' + _e(x["record_count"]) + ' records (' + _e(x["path_id"]) + ')</li>' for x in values) + '</ul>'
         return 200, "text/html; charset=utf-8", self.page("Derived Products", content, retro), None
+
+    def ingest_jobs(self, retro):
+        jobs = IngestManager(self.catalogue.archive, read_only=True).jobs(); prefix = "/retro" if retro else "/web"
+        content = '<p>Read-only local ingest status.</p><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("provenance_classification")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No local ingest jobs recorded.</p>'
+        return 200, "text/html; charset=utf-8", self.page("Local Ingest", content, retro), None
+
+    def media_jobs(self, retro):
+        jobs = MediaManager(self.catalogue.archive).jobs(); content = '<p>Read-only physical capture status.</p><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No media capture jobs recorded.</p>'
+        return 200, "text/html; charset=utf-8", self.page("Media Captures", content, retro), None
 
     def resource(self, resource_id, retro):
         item = self.broker.show(resource_id); prefix = "/retro" if retro else "/web"; analysis = item.get("malware_analysis", {}); content = '<dl><dt>Resource ID</dt><dd><code>' + _e(item["resource_id"]) + '</code></dd><dt>Name</dt><dd>' + _e(item.get("name")) + '</dd><dt>Version</dt><dd>' + _e(item.get("version")) + '</dd><dt>Kind</dt><dd>' + _e(item.get("kind")) + '</dd><dt>Platform</dt><dd>' + _e(item.get("platform")) + '</dd><dt>Availability</dt><dd>' + _e(item.get("availability")) + '</dd><dt>Rights</dt><dd>' + _e(item.get("rights")) + '</dd><dt>Malware analysis</dt><dd>' + _e(analysis.get("status", "NOT_SCANNED")) + '</dd></dl>'

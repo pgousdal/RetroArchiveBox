@@ -234,6 +234,26 @@ expose metadata only and never expose preservation paths. Physical media,
 drop-folder ingest, broader platform profiles, public product publication,
 large synchronization, and further hash/database expansion remain future work.
 
+## M6.4 Local & Physical Media Ingest Foundation
+
+M6.4 adds generic local-file and physical-media ingest jobs. Local inbox
+categories are `downloads`, `purchased`, `personal`, and `unknown`; visible
+files must be stable, `.part` files and symlinks are ignored, and source bytes
+are never deleted. Each job records provenance classification, explicit rights,
+operator notes, hashes, duplicate/convergence state, resulting object, malware
+state, identity state, warnings, and errors. Provenance such as
+`purchased_download`, `personal_dump`, `pirate_copy`, and
+`original_physical_owned` is evidence/history, not a redistribution decision.
+
+The generic `MediaAdapter` boundary currently implements safe read-only Linux
+whole-block-device inspection/capture using `lsblk` and `dd`. It enumerates
+whole disks, refuses the active root device, never mounts or writes the source,
+captures only to controlled staging, and passes the image through normal
+`Archive.ingest`. Optical, flux, tape, cartridge, and filesystem-content
+adapters remain future work. CLI, read-only API, and RetroWeb expose job/status
+metadata without arbitrary paths or remote capture controls. Rights, malware,
+identity, authority, and preservation identity remain separate.
+
 ## M4.1 authority assertions
 
 `rab authority import FILE.dat` preserves the original TOSEC DAT through M1,

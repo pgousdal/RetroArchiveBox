@@ -23,6 +23,8 @@ from .transports import AcquisitionPurpose, TransportResolver
 from .bootstrap import BootstrapOrchestrator, BootstrapStore
 from .identity import IdentityCatalogue
 from .products import ProductBuilder
+from .local_ingest import IngestManager, ProvenanceClass
+from .media import MediaManager
 
 
 def parser() -> argparse.ArgumentParser:
@@ -182,6 +184,19 @@ def parser() -> argparse.ArgumentParser:
     product_sub = product.add_subparsers(dest="product_command", required=True)
     product_sub.add_parser("list")
     product_build = product_sub.add_parser("build"); product_build.add_argument("product", choices=["identity", "fixity", "authority-crosswalk"]); product_build.add_argument("--platform"); product_build.add_argument("--format", dest="format_id"); product_build.add_argument("--authority"); product_build.add_argument("--hash-algorithm", dest="hash_algorithm")
+    local = sub.add_parser("local-ingest", help="operate local import inbox and file ingest")
+    local_sub = local.add_subparsers(dest="local_command", required=True)
+    local_sub.add_parser("status"); local_sub.add_parser("jobs")
+    local_show = local_sub.add_parser("show"); local_show.add_argument("job_id")
+    local_file = local_sub.add_parser("file"); local_file.add_argument("path", type=Path); local_file.add_argument("--category", choices=IngestManager.CATEGORIES, default="unknown"); local_file.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.UNKNOWN.value); local_file.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); local_file.add_argument("--notes", default="")
+    inbox_scan = local_sub.add_parser("inbox-scan"); inbox_scan.add_argument("--category", choices=IngestManager.CATEGORIES)
+    media = sub.add_parser("media", help="inspect and capture physical media")
+    media_sub = media.add_subparsers(dest="media_command", required=True)
+    media_sub.add_parser("devices")
+    media_inspect = media_sub.add_parser("inspect"); media_inspect.add_argument("device")
+    media_capture = media_sub.add_parser("capture"); media_capture.add_argument("device"); media_capture.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.ORIGINAL_PHYSICAL_OWNED.value); media_capture.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); media_capture.add_argument("--notes", default="")
+    media_sub.add_parser("jobs")
+    media_show = media_sub.add_parser("show"); media_show.add_argument("job_id")
     resource = sub.add_parser("resource", help="resolve and deliver consumer resources")
     resource_sub = resource.add_subparsers(dest="resource_command", required=True)
     resource_search = resource_sub.add_parser("search")
@@ -363,6 +378,20 @@ def run(args: argparse.Namespace) -> dict | list:
         products = ProductBuilder(archive)
         if args.product_command == "list": return products.list()
         return products.build(args.product, platform=args.platform, format_id=args.format_id, authority=args.authority, hash_algorithm=args.hash_algorithm)
+    if args.command == "local-ingest":
+        manager = IngestManager(archive)
+        if args.local_command == "status": return manager.status()
+        if args.local_command == "jobs": return manager.jobs()
+        if args.local_command == "show": return manager.show(args.job_id)
+        if args.local_command == "file": return manager.ingest_file(args.path, category=args.category, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes)
+        return manager.scan_inbox(args.category)
+    if args.command == "media":
+        manager = MediaManager(archive)
+        if args.media_command == "devices": return manager.devices()
+        if args.media_command == "inspect": return manager.inspect(args.device)
+        if args.media_command == "capture": return manager.capture(args.device, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes)
+        if args.media_command == "jobs": return manager.jobs()
+        return manager.show(args.job_id)
     if args.command == "resource" or args.command == "resource-set" or args.command == "consumer":
         broker = ResourceBroker(archive, registry=ConsumerRegistry(Path(__file__).parents[2] / "config" / "consumers.json"))
         if args.command == "consumer":

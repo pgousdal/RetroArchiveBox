@@ -257,6 +257,21 @@ rights bypass. Physical-media auto-ingest, watched drop folders, optical/USB/
 flux qualification, broader identification, public product publication, and
 large synchronization remain future work. Museum-grade status remains **NO**.
 
+## M6.4 Local & Physical Media Ingest Foundation (2026-08-19)
+
+M6.4 adds generic local inbox ingest, provenance classifications, persistent
+ingest jobs, duplicate convergence, identity/malware integration, and a
+fail-closed whole-block-device capture adapter. Purchased downloads, arbitrary
+unknown files, personal copies, historical/pirate copies, and original physical
+media are preserved through the existing staging and `Archive.ingest` boundary;
+provenance does not grant rights. `lsblk`/`dd` capture is read-only against the
+source, refuses the active root device, and is operator-local. API and RetroWeb
+are status-only. Generated fixtures qualify local file and fake-device paths;
+no removable hardware was available, so real hardware qualification is NOT
+PERFORMED. Future optical/flux capture, filesystem extraction, watched-folder
+services, USB imaging production privileges, and broader platform identification
+remain open. Museum-grade status remains **NO**.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

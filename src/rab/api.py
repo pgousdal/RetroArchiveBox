@@ -19,6 +19,8 @@ from .transports import AcquisitionPurpose, TransportResolver
 from .bootstrap import BootstrapStore
 from .identity import IdentityCatalogue
 from .products import ProductBuilder
+from .local_ingest import IngestManager
+from .media import MediaManager
 
 
 class CatalogueAPI:
@@ -60,6 +62,16 @@ class CatalogueAPI:
             return 200, identity.status()
         if route == "/api/v1/products":
             return 200, ProductBuilder(self.catalogue.archive, identity=identity).list()
+        local_ingest = IngestManager(self.catalogue.archive, read_only=True)
+        if route == "/api/v1/ingest/status": return 200, local_ingest.status()
+        if route == "/api/v1/ingest/jobs": return 200, [self._public_ingest_job(x) for x in local_ingest.jobs()]
+        m = re.fullmatch(r"/api/v1/ingest/jobs/([0-9a-f]+)", route)
+        if m: return 200, self._public_ingest_job(local_ingest.show(m.group(1)))
+        media = MediaManager(self.catalogue.archive)
+        if route == "/api/v1/media/devices": return 200, media.devices()
+        if route == "/api/v1/media/jobs": return 200, [self._public_media_job(x) for x in media.jobs()]
+        m = re.fullmatch(r"/api/v1/media/jobs/([0-9a-f]+)", route)
+        if m: return 200, self._public_media_job(media.show(m.group(1)))
         if route.startswith("/api/v1/products/"):
             product_path = unquote(route.removeprefix("/api/v1/products/"))
             matches = [x for x in ProductBuilder(self.catalogue.archive, identity=identity).list() if x.get("path_id") == product_path]
@@ -190,6 +202,18 @@ class CatalogueAPI:
             result = self.catalogue.show_package(bits[0] + ":" + unquote(bits[1]))
             return (200, result) if result else (404, {"error": "not_found"})
         return 404, {"error": "not_found"}
+
+    @staticmethod
+    def _public_ingest_job(job):
+        value = {**job, "source_descriptor": {k: v for k, v in job.get("source_descriptor", {}).items() if k != "original_path"}}
+        return value
+
+    @staticmethod
+    def _public_media_job(job):
+        value = {**job}
+        if isinstance(value.get("capture"), dict):
+            value["capture"] = {k: v for k, v in value["capture"].items() if k != "command"}
+        return value
 
     def download_object(self, identifier: str, *, public: bool = False) -> dict:
         sha = self.catalogue.archive.resolve(identifier)

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/local-ingest-job-v1.json",
+  "title": "RAB Local Ingest Job v1",
+  "type": "object",
+  "required": ["schema", "job_id", "state", "source_type", "provenance_classification", "rights"],
+  "properties": {
+    "schema": {"const": "rab-local-ingest-job-v1"},
+    "job_id": {"type": "string"},
+    "state": {"type": "string"},
+    "source_type": {"enum": ["local-file"]},
+    "provenance_classification": {"type": "string"},
+    "rights": {"enum": ["REDISTRIBUTABLE", "PRIVATE_LICENSED", "RESTRICTED", "UNKNOWN"]},
+    "object_id": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}

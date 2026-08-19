@@ -63,3 +63,5 @@ class IngestRequest:
     media_type: str
     title: str | None = None
     derived_from: str | None = None
+    provenance_classification: str = "unknown"
+    provenance: dict | None = None

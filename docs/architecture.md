@@ -177,6 +177,38 @@ remain referenced metadata, not product permission. CLI/API/RetroWeb expose
 identity and product metadata while preserving the existing read-only and
 publication boundaries.
 
+## Local & Physical Media Ingest Foundation (M6.4)
+
+Local material follows the same preservation pipeline as remote acquisition:
+
+```text
+inbox or physical medium
+        -> stable/read-only inspection or capture
+        -> controlled local staging
+        -> streamed hashes and Archive.ingest
+        -> malware observations / identity / authority references
+        -> catalogue and products
+```
+
+`IngestManager` records persistent JSON job metadata under `local-ingest/jobs`.
+It copies arbitrary regular files into controlled staging, requires a stable
+size/mtime readiness check for inbox scanning, rejects symlinks and unsafe
+categories, preserves unknown formats, and passes all bytes through the normal
+CAS ingest boundary. Exact duplicates add a new occurrence/provenance record
+without adding a master. `provenance_classification` is deliberately separate
+from `Rights`; ownership, purchase, historical/pirate copy, and unknown origin
+never imply redistribution permission.
+
+`MediaAdapter` is the generic physical capture boundary. The first adapter is
+`linux-block-device-dd`: `lsblk` enumerates whole devices, active-root checks
+fail closed, `dd` is invoked with an argument list and timeout, and the source
+device is never mounted, repaired, formatted, or written. Capture output is
+staged and then ingested by `IngestManager`, so identity hashes, malware state,
+authority evidence, and derived products use the same generic machinery. API
+and RetroWeb only expose read-only job/device/status information; device
+capture remains operator-local. Future optical, flux, tape, cartridge, and
+content-analysis adapters reuse this boundary without changing CAS identity.
+
 ## Consumer Resource Broker v1
 
 The broker is a derived consumer plane above M1 preservation and the M2/M3

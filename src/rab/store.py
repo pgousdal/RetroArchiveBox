@@ -164,7 +164,8 @@ class Archive:
             sha, "INGESTION", "PASS",
             {"occurrence_id": occurrence_id, "source": request.source,
              "source_path": request.source_path, "rights": request.rights.value,
-             "import_verified": True},
+             "import_verified": True, "provenance_classification": request.provenance_classification,
+             "provenance": request.provenance or {}},
         )
         self._write_occurrence(object_dir, occurrence_id, request, acquired)
         return {"object_id": f"sha256:{sha}", "occurrence_id": occurrence_id, "event": event}
@@ -177,6 +178,8 @@ class Archive:
             "occurrence_id": occurrence_id, "source": request.source,
             "source_path": request.source_path, "acquired_at": acquired,
             "rights": request.rights.value,
+            "provenance_classification": request.provenance_classification,
+            "provenance": request.provenance or {},
             "source_policy": {"source_id": request.source},
         })
         target.chmod(0o444)
@@ -219,7 +222,16 @@ class Archive:
             ).fetchall()
         result = dict(obj)
         result["object_id"] = f"sha256:{sha}"
-        result["occurrences"] = [dict(row) for row in occurrences]
+        result["occurrences"] = []
+        for row in occurrences:
+            occurrence = dict(row)
+            sidecar = self.object_dir(sha) / "occurrences" / (occurrence["id"] + ".json")
+            if sidecar.is_file():
+                try:
+                    occurrence.update(json.loads(sidecar.read_text(encoding="utf-8")))
+                except (OSError, json.JSONDecodeError):
+                    pass
+            result["occurrences"].append(occurrence)
         result["events"] = [{**dict(row), "detail": json.loads(row["detail"])} for row in events]
         return result
 

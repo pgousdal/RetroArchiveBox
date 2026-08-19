@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/media-capture-job-v1.json",
+  "title": "RAB Media Capture Job v1",
+  "type": "object",
+  "required": ["schema", "job_id", "state", "device", "adapter"],
+  "properties": {
+    "schema": {"const": "rab-media-capture-job-v1"},
+    "job_id": {"type": "string"},
+    "state": {"type": "string"},
+    "device": {"type": "string"},
+    "adapter": {"type": "object"},
+    "object_id": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}
