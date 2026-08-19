@@ -145,6 +145,38 @@ reads, malware-index deletion, and malware-index rebuild. This qualifies the
 real ClamAV execution path on Ubuntu, not Debian production provisioning or
 the official continuously updated ClamAV database.
 
+## Universal Identity & Derived Products (M6.3)
+
+RAB identity has four explicit levels: `BYTE` is exact byte identity, `MEDIA`
+is a represented medium/equivalence claim, `RELEASE` is a particular
+platform/version/edition, and `WORK` is the underlying work. These levels are
+never inferred from filenames or silently conflated. A DMS and ADF may be
+related representations; their byte identities remain different. A flux
+capture and derived disk image are related by evidence-backed derivation, not
+byte equivalence.
+
+`IdentityCatalogue` is a disposable `identity.sqlite3` index rebuilt directly
+from immutable object manifests/masters, occurrence sidecars, authority
+assertions, and malware/rights references. Rebuild recomputes all five hashes
+streaming through the existing `hash_file` implementation and verifies the
+canonical SHA-256 before recording the identity row. Generic data-driven
+`FORMAT_PROFILES` classify formats into platform families; adding a new profile
+does not add platform-specific schema or control flow. M6.3 qualifies Amiga ADF
+and Commodore 64 D64 using generated fixtures.
+
+Logical identities and typed relationships are immutable JSON sidecars and
+include evidence. Cyclic derivation/representation/release relationships are
+rejected. TOSEC/Redump remain the existing authority systems; identity records
+reference their assertions and do not create a second authority truth.
+
+`ProductBuilder` creates deterministic metadata-only JSONL products for
+universal identity, fixity, and authority crosswalks. Filters include platform,
+format, authority, and hash algorithm. Product files are disposable derived
+outputs and contain no payload bytes or internal paths. Rights and malware state
+remain referenced metadata, not product permission. CLI/API/RetroWeb expose
+identity and product metadata while preserving the existing read-only and
+publication boundaries.
+
 ## Consumer Resource Broker v1
 
 The broker is a derived consumer plane above M1 preservation and the M2/M3

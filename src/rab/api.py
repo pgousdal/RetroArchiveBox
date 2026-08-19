@@ -17,6 +17,8 @@ from .broker import BrokerError, ConsumerContext, ConsumerRegistry, DeliveryMode
 from .malware import MalwareStore, aggregate
 from .transports import AcquisitionPurpose, TransportResolver
 from .bootstrap import BootstrapStore
+from .identity import IdentityCatalogue
+from .products import ProductBuilder
 
 
 class CatalogueAPI:
@@ -53,6 +55,15 @@ class CatalogueAPI:
             return 200, [x.public() for x in self.registry.load().values()] if self.registry else []
         if route == "/api/v1/acquisition/transports":
             return 200, TransportResolver().capabilities()
+        identity = IdentityCatalogue(self.catalogue.archive, read_only=True)
+        if route == "/api/v1/identity/status":
+            return 200, identity.status()
+        if route == "/api/v1/products":
+            return 200, ProductBuilder(self.catalogue.archive, identity=identity).list()
+        if route.startswith("/api/v1/products/"):
+            product_path = unquote(route.removeprefix("/api/v1/products/"))
+            matches = [x for x in ProductBuilder(self.catalogue.archive, identity=identity).list() if x.get("path_id") == product_path]
+            return (200, matches[0]) if matches else (404, {"error": "not_found"})
         bootstrap_store = BootstrapStore(self.catalogue.archive, read_only=True)
         if route == "/api/v1/acquisition/bootstrap/jobs":
             return 200, bootstrap_store.list()
@@ -148,6 +159,12 @@ class CatalogueAPI:
         m = re.fullmatch(r"/api/v1/objects/(?:sha256:)?([0-9a-f]{64})/assertions", route)
         if m:
             return 200, Authority(self.catalogue.archive).assertions(m.group(1))
+        m = re.fullmatch(r"/api/v1/objects/(?:sha256:)?([0-9a-f]{64})/(identity|hashes|relationships)", route)
+        if m:
+            identifier = "sha256:" + m.group(1)
+            if m.group(2) == "identity": return 200, identity.show(identifier)
+            if m.group(2) == "hashes": return 200, identity.hashes(identifier)
+            return 200, identity.relationships(identifier)
         m = re.fullmatch(r"/api/v1/objects/(?:sha256:)?([0-9a-f]{64})/malware(?:/(observations))?", route)
         if m:
             identifier = "sha256:" + m.group(1)

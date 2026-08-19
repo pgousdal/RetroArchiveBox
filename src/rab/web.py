@@ -10,6 +10,8 @@ from .api import CatalogueAPI
 from .broker import BrokerError, ConsumerContext, DeliveryMode, ResourceBroker, ResolutionState
 from .errors import PolicyError, RabError
 from .bootstrap import BootstrapStore
+from .identity import IdentityCatalogue
+from .products import ProductBuilder
 
 
 CSS = """body { font-family: Arial, Helvetica, sans-serif; margin: 1em; max-width: 60em; color: #111; background: #fff; }
@@ -70,6 +72,8 @@ class WebApplication:
             if route == "/sources": return self.sources(retro)
             if route == "/bootstrap": return self.bootstrap(retro)
             if route.startswith("/bootstrap/"): return self.bootstrap_job(unquote(route.removeprefix("/bootstrap/")), retro)
+            if route.startswith("/identity/"): return self.identity(unquote(route.removeprefix("/identity/")), retro)
+            if route == "/products": return self.products(retro)
             if route.startswith("/source/"): return self.source(unquote(route.removeprefix("/source/")), retro)
             if route.startswith("/resource/"): return self.resource(unquote(route.removeprefix("/resource/")), retro)
             if route.startswith("/set/"): return self.resource_set(unquote(route.removeprefix("/set/")), retro)
@@ -96,7 +100,7 @@ class WebApplication:
     def home(self, retro):
         stats = self.broker.stats()
         content = '<p>Preservation-first archive browser.</p><form action="' + ("/retro" if retro else "/web") + '/search" method="get"><label for="q">Search:</label><input type="text" id="q" name="q" size="32" /><input type="submit" value="Search" /></form>'
-        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li></ul>'
+        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li><li><a href="' + ("/retro" if retro else "/web") + '/products">Derived products</a></li></ul>'
         content += '<p class="muted">Indexed resources: ' + _e(stats.get("resources", 0)) + '; resource sets: ' + _e(stats.get("resource_sets", 0)) + '.</p>'
         return 200, "text/html; charset=utf-8", self.page("Home", content, retro), None
 
@@ -154,6 +158,17 @@ class WebApplication:
         content = '<dl><dt>Job</dt><dd><code>' + _e(job["job_id"]) + '</code></dd><dt>Source</dt><dd>' + _e(job["source"]) + '</dd><dt>State</dt><dd>' + _e(job["state"]) + '</dd><dt>Transport</dt><dd>' + _e((job.get("plan", {}).get("selected") or {}).get("transport")) + '</dd><dt>Bytes</dt><dd>' + _e(job.get("bytes_transferred", 0)) + '</dd></dl><h3>Progress</h3><p>Completed: ' + _e(len(job.get("completed_items", []))) + '; deduplicated: ' + _e(len(job.get("skipped_items", []))) + '; failed: ' + _e(len(job.get("failed_items", []))) + '</p><p><a href="' + prefix + '/bootstrap">All bootstrap jobs</a></p>'
         return 200, "text/html; charset=utf-8", self.page("Bootstrap Job", content, retro), None
 
+    def identity(self, identifier, retro):
+        value = IdentityCatalogue(self.catalogue.archive, read_only=True).show(identifier); prefix = "/retro" if retro else "/web"
+        hashes = '<br />'.join(_e(key + ": " + str(value[key])) for key in ("crc32", "md5", "sha1", "sha256", "blake3"))
+        content = '<dl><dt>Object</dt><dd><code>' + _e(value["object_id"]) + '</code></dd><dt>Size</dt><dd>' + _e(value["size"]) + '</dd><dt>Format</dt><dd>' + _e(value["format_id"]) + '</dd><dt>Platform family</dt><dd>' + _e(value["platform_family"]) + '</dd><dt>Platform</dt><dd>' + _e(value["platform"]) + '</dd><dt>Hashes</dt><dd><code>' + hashes + '</code></dd></dl><h3>Relationships</h3><ul>' + ''.join('<li>' + _e(x["relationship"]) + ': ' + _e(x["object_id"]) + '</li>' for x in value["relationships"]) + '</ul><p><a href="' + prefix + '/resource/' + quote(value["object_id"], safe="") + '">Resource view</a></p>'
+        return 200, "text/html; charset=utf-8", self.page("Universal Identity", content, retro), None
+
+    def products(self, retro):
+        values = ProductBuilder(self.catalogue.archive, identity=IdentityCatalogue(self.catalogue.archive, read_only=True)).list(); prefix = "/retro" if retro else "/web"
+        content = '<p>Metadata-only derived products. Payload rights are unchanged.</p><ul>' + ''.join('<li>' + _e(x["product"]) + ': ' + _e(x["record_count"]) + ' records (' + _e(x["path_id"]) + ')</li>' for x in values) + '</ul>'
+        return 200, "text/html; charset=utf-8", self.page("Derived Products", content, retro), None
+
     def resource(self, resource_id, retro):
         item = self.broker.show(resource_id); prefix = "/retro" if retro else "/web"; analysis = item.get("malware_analysis", {}); content = '<dl><dt>Resource ID</dt><dd><code>' + _e(item["resource_id"]) + '</code></dd><dt>Name</dt><dd>' + _e(item.get("name")) + '</dd><dt>Version</dt><dd>' + _e(item.get("version")) + '</dd><dt>Kind</dt><dd>' + _e(item.get("kind")) + '</dd><dt>Platform</dt><dd>' + _e(item.get("platform")) + '</dd><dt>Availability</dt><dd>' + _e(item.get("availability")) + '</dd><dt>Rights</dt><dd>' + _e(item.get("rights")) + '</dd><dt>Malware analysis</dt><dd>' + _e(analysis.get("status", "NOT_SCANNED")) + '</dd></dl>'
         if analysis.get("observations"):
@@ -172,6 +187,15 @@ class WebApplication:
                 actions = '<span class="muted">Preserved locally; redistribution denied</span>'
             content += '<tr><td>' + _e(obj.get("role")) + '</td><td><code>' + _e(oid) + '</code></td><td>' + _e(obj.get("size")) + '</td><td><small>' + hashes + '</small></td><td>' + actions + '</td></tr>'
         content += '</table>'
+        if IdentityCatalogue(self.catalogue.archive, read_only=True).db_path.is_file():
+            content += '<h3>Universal identity</h3><ul>'
+            for obj in item.get("objects", []):
+                try:
+                    identity = IdentityCatalogue(self.catalogue.archive, read_only=True).show(obj["sha256"])
+                    content += '<li><a href="' + prefix + '/identity/' + quote(obj["sha256"], safe="") + '">' + _e(obj["sha256"]) + '</a>: ' + _e(identity.get("format_id")) + ' / ' + _e(identity.get("platform_family")) + '</li>'
+                except RabError:
+                    continue
+            content += '</ul>'
         if item.get("provenance") or item.get("metadata", {}).get("source_path"):
             content += '<h3>Provenance</h3><p>' + _e(item.get("metadata", {}).get("source_path")) + '</p>'
         if item.get("authority_assertions"):

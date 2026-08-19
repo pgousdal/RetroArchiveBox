@@ -215,6 +215,25 @@ did not complete successfully; `aria2c` was not installed system-wide and no
 BitTorrent runtime qualification is claimed. No large public collection was
 downloaded. Museum-grade status remains unclaimed.
 
+## M6.3 Universal Identity & Derived Products
+
+M6.3 adds a platform-agnostic, rebuildable identity catalogue over immutable
+RAB objects. SHA-256 remains the canonical preservation/CAS identity; streamed
+CRC32, MD5, SHA-1, SHA-256, and BLAKE3 values are interoperability metadata.
+Identity levels distinguish byte, media, release, and work identity. Generic
+data-driven format profiles classify small Amiga and Commodore 64 fixtures
+without making the core schema platform-specific. Typed evidence-backed
+relationships represent derivation, representations, releases, works, and
+authority matches without conflating byte identity.
+
+The derived product engine emits deterministic metadata-only identity, fixity,
+and authority-crosswalk JSONL products with platform/format/authority filters.
+Products and identity state are disposable and rebuildable; publishing identity
+metadata never grants payload redistribution rights. CLI, API, and RetroWeb
+expose metadata only and never expose preservation paths. Physical media,
+drop-folder ingest, broader platform profiles, public product publication,
+large synchronization, and further hash/database expansion remain future work.
+
 ## M4.1 authority assertions
 
 `rab authority import FILE.dat` preserves the original TOSEC DAT through M1,

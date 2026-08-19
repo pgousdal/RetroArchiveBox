@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/identity-catalogue-v1.json",
+  "title": "RAB Universal Identity Catalogue v1",
+  "type": "object",
+  "required": ["object_id", "size", "hashes", "format", "platform_family", "rights", "malware"],
+  "properties": {
+    "object_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "size": {"type": "integer", "minimum": 0},
+    "hashes": {"type": "object", "required": ["crc32", "md5", "sha1", "sha256", "blake3"]},
+    "format": {"type": "string"},
+    "platform_family": {"type": ["string", "null"]},
+    "rights": {"type": "array"},
+    "malware": {"type": "object"}
+  },
+  "additionalProperties": true
+}

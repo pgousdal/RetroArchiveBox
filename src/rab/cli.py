@@ -21,6 +21,8 @@ from .web import run_web_server
 from .malware import MalwareStore
 from .transports import AcquisitionPurpose, TransportResolver
 from .bootstrap import BootstrapOrchestrator, BootstrapStore
+from .identity import IdentityCatalogue
+from .products import ProductBuilder
 
 
 def parser() -> argparse.ArgumentParser:
@@ -168,6 +170,18 @@ def parser() -> argparse.ArgumentParser:
     bootstrap_status = bootstrap_sub.add_parser("status"); bootstrap_status.add_argument("job_id")
     bootstrap_resume = bootstrap_sub.add_parser("resume"); bootstrap_resume.add_argument("job_id"); bootstrap_resume.add_argument("source_id")
     bootstrap_report = bootstrap_sub.add_parser("report"); bootstrap_report.add_argument("job_id")
+    identity = sub.add_parser("identity", help="inspect universal object identities")
+    identity_sub = identity.add_subparsers(dest="identity_command", required=True)
+    identity_sub.add_parser("status")
+    identity_show = identity_sub.add_parser("show"); identity_show.add_argument("identifier")
+    identity_hashes = identity_sub.add_parser("hashes"); identity_hashes.add_argument("identifier")
+    identity_sub.add_parser("rebuild")
+    identity_relationships = identity_sub.add_parser("relationships"); identity_relationships.add_argument("identifier")
+    identity_search = identity_sub.add_parser("search"); identity_search.add_argument("--platform"); identity_search.add_argument("--format", dest="format_id"); identity_search.add_argument("--authority"); identity_search.add_argument("--hash-algorithm", dest="hash_algorithm")
+    product = sub.add_parser("product", help="build deterministic derived metadata products")
+    product_sub = product.add_subparsers(dest="product_command", required=True)
+    product_sub.add_parser("list")
+    product_build = product_sub.add_parser("build"); product_build.add_argument("product", choices=["identity", "fixity", "authority-crosswalk"]); product_build.add_argument("--platform"); product_build.add_argument("--format", dest="format_id"); product_build.add_argument("--authority"); product_build.add_argument("--hash-algorithm", dest="hash_algorithm")
     resource = sub.add_parser("resource", help="resolve and deliver consumer resources")
     resource_sub = resource.add_subparsers(dest="resource_command", required=True)
     resource_search = resource_sub.add_parser("search")
@@ -337,6 +351,18 @@ def run(args: argparse.Namespace) -> dict | list:
         return resolver.fetch(Acquisition(archive), source, args.purpose, path=args.path,
                               expected_sha256=args.expected_sha256, expected_size=args.expected_size,
                               dry_run=args.dry_run)
+    if args.command == "identity":
+        identity_db = IdentityCatalogue(archive)
+        if args.identity_command == "status": return identity_db.status()
+        if args.identity_command == "show": return identity_db.show(args.identifier)
+        if args.identity_command == "hashes": return identity_db.hashes(args.identifier)
+        if args.identity_command == "relationships": return identity_db.relationships(args.identifier)
+        if args.identity_command == "search": return identity_db.search(platform=args.platform, format_id=args.format_id, authority=args.authority, hash_algorithm=args.hash_algorithm)
+        return identity_db.rebuild()
+    if args.command == "product":
+        products = ProductBuilder(archive)
+        if args.product_command == "list": return products.list()
+        return products.build(args.product, platform=args.platform, format_id=args.format_id, authority=args.authority, hash_algorithm=args.hash_algorithm)
     if args.command == "resource" or args.command == "resource-set" or args.command == "consumer":
         broker = ResourceBroker(archive, registry=ConsumerRegistry(Path(__file__).parents[2] / "config" / "consumers.json"))
         if args.command == "consumer":
