@@ -28,6 +28,8 @@ class RepresentationKind(StrEnum):
     FLUX_CAPTURE = "FLUX_CAPTURE"
     FILE = "FILE"
     ARCHIVE = "ARCHIVE"
+    WHOLE_DEVICE_IMAGE = "WHOLE_DEVICE_IMAGE"
+    PARTITION = "PARTITION"
     PRESERVATION_FORMAT = "PRESERVATION_FORMAT"
 
 
@@ -124,20 +126,39 @@ class BlockDeviceAdapter(MediaAdapter):
 
     def devices(self) -> list[dict]:
         devices = [x for x in self._lsblk() if x.get("type") in {"disk", "loop"}]
-        root = self._root_source(); swap = self._swap_devices()
+        root = self._root_source(); storage = self._mount_source(str(self.archive_root)) if hasattr(self, "archive_root") else None; swap = self._swap_devices()
         for device in devices:
             path = device.get("path", "")
-            protected = bool(root and (path == root or root.startswith(path))) or path in swap
+            mounted_children = self._mounted_children(device)
+            protected = bool(root and (path == root or root.startswith(path))) or bool(storage and (path == storage or storage.startswith(path))) or path in swap
             device["removable"] = bool(device.get("rm"))
-            device["safety"] = "PROTECTED" if protected else "SAFE_CANDIDATE" if device["removable"] else "NON_REMOVABLE"
+            device["mounted_children"] = mounted_children
+            device["safety"] = "PROTECTED" if protected else "MOUNTED" if mounted_children else "SAFE_CANDIDATE" if device["removable"] else "NON_REMOVABLE"
             device["source_reported_read_only"] = bool(device.get("ro"))
         return devices
+
+    def _mounted_children(self, device: dict) -> list[str]:
+        values = []
+        for child in device.get("children") or []:
+            mounts = child.get("mountpoints") or ([child.get("mountpoint")] if child.get("mountpoint") else [])
+            values.extend([str(x) for x in mounts if x])
+            values.extend(self._mounted_children(child))
+        mounts = device.get("mountpoints") or ([device.get("mountpoint")] if device.get("mountpoint") else [])
+        values.extend([str(x) for x in mounts if x])
+        return sorted(set(values))
+
+    @staticmethod
+    def _mount_source(path: str) -> str | None:
+        try:
+            result = subprocess.run(["findmnt", "-n", "-o", "SOURCE", path], check=False, capture_output=True, text=True, timeout=5, shell=False)
+            return result.stdout.strip() or None
+        except (OSError, subprocess.SubprocessError): return None
 
     def inspect(self, device: str) -> dict:
         if not device.startswith("/dev/") or any(x in device for x in ("\x00", "\n", "\r")): raise PolicyError("invalid block device path")
         matches = [x for x in self.devices() if x.get("path") == device]
         if not matches: raise PolicyError("device is not an enumerated whole block device")
-        if matches[0].get("safety") == "PROTECTED": raise PolicyError("device is protected by active system usage")
+        if matches[0].get("safety") in {"PROTECTED", "MOUNTED"}: raise PolicyError("device or child partition is not safely unmounted")
         return matches[0]
 
     def _root_source(self) -> str | None:
@@ -162,43 +183,51 @@ class BlockDeviceAdapter(MediaAdapter):
         try:
             result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=timeout, shell=False)
         except subprocess.TimeoutExpired as exc:
-            destination.unlink(missing_ok=True); raise RabError("device capture timed out") from exc
+            if destination.is_file() and destination.stat().st_size: return {"device": device, "capture_tool": "dd", "command": command, "bytes": destination.stat().st_size, "outcome": "PARTIAL", "read_errors": ["capture timed out after partial output"], "capture_mode_read_only": True}
+            raise RabError("device capture timed out") from exc
         if result.returncode:
+            if destination.is_file() and destination.stat().st_size: return {"device": device, "capture_tool": "dd", "command": command, "bytes": destination.stat().st_size, "outcome": "PARTIAL", "read_errors": [(result.stderr or "device capture failed")[-2000:]], "capture_mode_read_only": True}
             destination.unlink(missing_ok=True); raise RabError("device capture failed: " + (result.stderr or "").strip()[-1000:])
         actual = destination.stat().st_size; expected = int(info.get("size") or 0)
         if expected and actual != expected:
             destination.unlink(missing_ok=True); raise RabError(f"whole-device capture size mismatch: expected {expected}, got {actual}")
-        return {"device": device, "device_info": info, "capture_tool": "dd", "command": command, "bytes": actual, "expected_bytes": expected or None, "source_reported_read_only": info.get("source_reported_read_only", False), "capture_mode_read_only": True}
+        return {"device": device, "device_info": info, "capture_tool": "dd", "command": command, "bytes": actual, "expected_bytes": expected or None, "source_reported_read_only": info.get("source_reported_read_only", False), "capture_mode_read_only": True, "outcome": "COMPLETE", "read_errors": []}
 
 
 class MediaManager:
     def __init__(self, archive, *, adapter: MediaAdapter | None = None):
         self.archive = archive; self.adapter = adapter or BlockDeviceAdapter(); self.root = archive.root / "media"; self.jobs_root = self.root / "jobs"
+        if isinstance(self.adapter, BlockDeviceAdapter): self.adapter.archive_root = archive.root
 
     def devices(self): return self.adapter.devices() if hasattr(self.adapter, "devices") else []
     def inspect(self, device): return self.adapter.inspect(device)
     def jobs(self):
         return [json.loads(x.read_text(encoding="utf-8")) for x in sorted(self.jobs_root.glob("*.json"))] if self.jobs_root.is_dir() else []
     def show(self, job_id):
-        if not re.fullmatch(r"[0-9a-f]+", job_id): raise PolicyError("invalid optical job id")
+        if not re.fullmatch(r"[0-9a-f]+", job_id): raise PolicyError("invalid media job id")
         path = self.jobs_root / (job_id + ".json")
         if not path.is_file(): raise RabError("media job not found")
         return json.loads(path.read_text(encoding="utf-8"))
 
-    def capture(self, device: str, *, physical_medium_id=None, repeat_of=None, platform_hint=None, title=None, media_number=None, rights: Rights = Rights.UNKNOWN, provenance: ProvenanceClass | str = ProvenanceClass.ORIGINAL_PHYSICAL_OWNED, notes: str = "", verification: str = "standard"):
+    def capture(self, device: str, *, physical_medium_id=None, repeat_of=None, platform_hint=None, vendor=None, title=None, collection=None, media_number=None, rights: Rights = Rights.UNKNOWN, provenance: ProvenanceClass | str = ProvenanceClass.ORIGINAL_PHYSICAL_OWNED, notes: str = "", verification: str = "standard"):
         self.jobs_root.mkdir(parents=True, exist_ok=True); job_id = uuid.uuid4().hex; staging = self.root / "staging" / job_id / "device.img"
-        job = {"schema": "rab-media-capture-job-v1", "job_id": job_id, "state": IngestJobState.CAPTURING.value, "created_at": _now(), "device": device, "adapter": self.adapter.capabilities(), "verification_policy": verification, "verification": {"policy": verification, "status": "NOT_PERFORMED", "methods": []}, "warnings": [], "errors": [], "object_id": None}
+        job = {"schema": "rab-media-capture-job-v1", "job_id": job_id, "state": IngestJobState.CAPTURING.value, "created_at": _now(), "device": device, "physical_medium_id": physical_medium_id or "physical-removable:" + uuid.uuid4().hex, "capture_attempt": "REPEAT" if repeat_of else "FIRST", "repeat_of": repeat_of, "platform_hint": platform_hint, "vendor": vendor, "title": title, "collection": collection, "media_number": media_number, "provenance_classification": ProvenanceClass(provenance).value, "rights": Rights(rights).value, "operator_notes": notes, "representation_kind": RepresentationKind.WHOLE_DEVICE_IMAGE.value, "adapter": self.adapter.capabilities(), "verification_policy": verification, "verification": {"policy": verification, "status": "NOT_PERFORMED", "methods": []}, "warnings": [], "errors": [], "object_id": None}
         self.archive._atomic_json(self.jobs_root / (job_id + ".json"), job)
         try:
             capture = self.adapter.capture(device, staging)
+            if repeat_of:
+                previous = self.show(repeat_of); previous_sha = previous.get("hashes", {}).get("sha256"); current_sha = hash_file(staging)["sha256"]
+                job["repeat_comparison"] = {"repeat_of": repeat_of, "byte_identical": previous_sha == current_sha, "raw_capture_hashes_compared": bool(previous_sha), "differing_capture_preserved": previous_sha != current_sha}
             job.update({"capture": capture, "state": IngestJobState.INGESTING.value})
             checks = ["capture_completed", "byte_count"]
             if verification == "fast": job["verification"] = {"policy": verification, "status": "PASS", "methods": checks}
             else:
                 job["verification"] = {"policy": verification, "status": "LIMITED", "methods": checks, "limitations": "repeat-read verification not implemented"}
             manager = IngestManager(self.archive)
+            job["hashes"] = hash_file(staging)
             result = manager.ingest_staged(staging, category="personal", rights=rights, provenance=provenance, notes=notes, original_path=device)
-            job.update({"object_id": result["object_id"], "ingest_job_id": result["job_id"], "state": result["state"], "completed_at": _now()})
+            outcome = capture.get("outcome", "COMPLETE")
+            job.update({"object_id": result["object_id"], "ingest_job_id": result["job_id"], "state": "COMPLETED_WITH_WARNINGS" if outcome == "PARTIAL" else result["state"], "completed_at": _now(), "inventory": inventory_image(staging)})
         except Exception as exc:
             job["state"] = IngestJobState.FAILED.value; job["errors"].append(str(exc)); job["completed_at"] = _now(); raise
         finally:

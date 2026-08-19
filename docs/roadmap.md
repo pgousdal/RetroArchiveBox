@@ -375,6 +375,12 @@ qualification command coverage, contained-object analysis, deeper optical
 capture, tape/cartridge adapters, and public derived products. Museum-grade
 status remains **NO**.
 
+The removable-media preservation path now retains complete whole-device
+representation, mounted-child/storage safety evidence, physical-medium and
+repeat metadata, partial/error captures, non-mounting inventory, and
+operator-local `rab removable` status/capture surfaces. Real disposable USB or
+SD hardware qualification remains **NOT PERFORMED**.
+
 ## M6.11 Contained Object Discovery & Recursive Analysis Foundation (2026-08-19)
 
 M6.11 adds bounded disposable-copy analysis, generic analyzer registration,

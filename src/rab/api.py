@@ -25,6 +25,7 @@ from .flux import FluxManager
 from .physical import PhysicalMediaOrchestrator
 from .qualification import QualificationManager
 from .analysis import AnalysisManager
+from .removable import RemovableManager
 from .tree_ingest import TreeIngestManager
 
 
@@ -98,6 +99,14 @@ class CatalogueAPI:
         if route == "/api/v1/media/status": return 200, {"candidates": physical.public_candidates(), "sessions": physical.public_sessions()}
         if route == "/api/v1/media/candidates": return 200, physical.public_candidates()
         if route == "/api/v1/media/sessions": return 200, physical.public_sessions()
+        removable = RemovableManager(self.catalogue.archive)
+        if route == "/api/v1/removable/devices": return 200, [{key: value for key, value in item.items() if key not in {"path", "serial", "children"}} for item in removable.devices()]
+        if route == "/api/v1/removable/jobs": return 200, [removable.public_job(x) for x in removable.jobs()]
+        m = re.fullmatch(r"/api/v1/removable/jobs/([0-9a-f]+)", route)
+        if m: return 200, removable.public_job(removable.show(m.group(1)))
+        m = re.fullmatch(r"/api/v1/removable/jobs/([0-9a-f]+)/(inventory|analysis)", route)
+        if m:
+            return 200, removable.inventory(m.group(1)) if m.group(2) == "inventory" else {"capture_id": m.group(1), "analysis": "operator-local analysis; no remote execution"}
         qualification = QualificationManager(self.catalogue.archive)
         if route == "/api/v1/qualification/status": return 200, qualification.public_status()
         if route == "/api/v1/qualification/runs": return 200, [{key: value for key, value in item.items() if key in {"qualification_id", "recorded_at", "profile", "readiness"}} for item in qualification.runs()]

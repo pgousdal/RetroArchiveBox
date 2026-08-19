@@ -130,6 +130,22 @@ manifests, occurrences, and preservation events remain the authoritative
 records. The API and RetroWeb expose only safe logical inbox/job information,
 not private filesystem paths or purchase metadata.
 
+## M6.9 Removable media preservation
+
+`rab removable devices|inspect|plan|capture|jobs|show|inventory|analyze`
+preserves removable block media as a whole-device image through the existing
+`MediaManager` and `Archive.ingest` boundary. Capture includes partition
+tables, allocated/unallocated sectors, slack, and unknown structures; file
+copying is not a substitute for the physical-media image. Devices with mounted
+children, root/system/storage backing, or ambiguous safety are refused.
+
+Jobs retain physical-medium IDs, provenance/rights, repeat attempts, hashes,
+inventory, and read-error evidence. Partial images are preserved as warnings,
+not padded or called complete. Repeated reads are compared without discarding
+differing evidence. Filesystem/contained analysis runs only against the
+captured image and remains derived/rebuildable. Real removable hardware
+qualification remains separate and is not claimed by fixture tests.
+
 ## M6.9 Unified physical media ingest
 
 `rab media ingest --dry-run` discovers optical, removable block, and

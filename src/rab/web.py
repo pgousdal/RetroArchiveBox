@@ -19,6 +19,7 @@ from .physical import PhysicalMediaOrchestrator
 from .qualification import QualificationManager
 from .analysis import AnalysisManager
 from .malware import MalwareStore
+from .removable import RemovableManager
 from .tree_ingest import TreeIngestManager
 
 
@@ -89,6 +90,7 @@ class WebApplication:
             if route == "/qualification": return self.qualification(retro)
             if route == "/analysis": return self.analysis(retro)
             if route == "/malware": return self.malware(retro)
+            if route == "/removable": return self.removable(retro)
             if route == "/optical": return self.optical_jobs(retro)
             if route == "/flux": return self.flux_jobs(retro)
             if route.startswith("/source/"): return self.source(unquote(route.removeprefix("/source/")), retro)
@@ -117,7 +119,7 @@ class WebApplication:
     def home(self, retro):
         stats = self.broker.stats()
         content = '<p>Preservation-first archive browser.</p><form action="' + ("/retro" if retro else "/web") + '/search" method="get"><label for="q">Search:</label><input type="text" id="q" name="q" size="32" /><input type="submit" value="Search" /></form>'
-        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li><li><a href="' + ("/retro" if retro else "/web") + '/ingest">Local ingest</a></li><li><a href="' + ("/retro" if retro else "/web") + '/media">Media captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/physical-media">Unified physical media</a></li><li><a href="' + ("/retro" if retro else "/web") + '/qualification">Qualification</a></li><li><a href="' + ("/retro" if retro else "/web") + '/analysis">Contained analysis</a></li><li><a href="' + ("/retro" if retro else "/web") + '/malware">Malware evidence</a></li><li><a href="' + ("/retro" if retro else "/web") + '/optical">Optical captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/flux">Flux captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/products">Derived products</a></li></ul>'
+        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li><li><a href="' + ("/retro" if retro else "/web") + '/ingest">Local ingest</a></li><li><a href="' + ("/retro" if retro else "/web") + '/media">Media captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/removable">Removable media</a></li><li><a href="' + ("/retro" if retro else "/web") + '/physical-media">Unified physical media</a></li><li><a href="' + ("/retro" if retro else "/web") + '/qualification">Qualification</a></li><li><a href="' + ("/retro" if retro else "/web") + '/analysis">Contained analysis</a></li><li><a href="' + ("/retro" if retro else "/web") + '/malware">Malware evidence</a></li><li><a href="' + ("/retro" if retro else "/web") + '/optical">Optical captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/flux">Flux captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/products">Derived products</a></li></ul>'
         content += '<p class="muted">Indexed resources: ' + _e(stats.get("resources", 0)) + '; resource sets: ' + _e(stats.get("resource_sets", 0)) + '.</p>'
         return 200, "text/html; charset=utf-8", self.page("Home", content, retro), None
 
@@ -225,6 +227,12 @@ class WebApplication:
         store = MalwareStore(self.catalogue.archive, read_only=True, extended=True); observations = [store.public_observation(x) for x in store.observations()]; content = '<p>Malware results are timestamped observations, not preservation truth. NOT_DETECTED is not CLEAN.</p><table><tr><th>Object</th><th>Scanner</th><th>Class</th><th>Definitions</th><th>Coverage</th><th>Result</th><th>Detections</th></tr>'
         content += ''.join('<tr><td><code>' + _e(x.get("object_sha256")) + '</code></td><td>' + _e(x.get("scanner_product", x.get("scanner_id"))) + '</td><td>' + _e(x.get("scanner_class")) + '</td><td>' + _e(x.get("definitions_identity", x.get("signature_version"))) + '</td><td>' + _e(x.get("coverage")) + '</td><td>' + _e(x.get("result")) + '</td><td>' + _e(', '.join(y.get("name", "") for y in x.get("detections", []))) + '</td></tr>' for x in observations) + '</table>'
         return 200, "text/html; charset=utf-8", self.page("Malware Evidence", content, retro), None
+
+    def removable(self, retro):
+        manager = RemovableManager(self.catalogue.archive); devices = manager.devices(); jobs = manager.jobs(); content = '<p>Read-only removable-media status. Whole-device capture is operator-local and source media must be unmounted.</p><h3>Devices</h3><table><tr><th>Type</th><th>Model</th><th>Size</th><th>Removable</th><th>Safety</th><th>Mounted children</th></tr>'
+        content += ''.join('<tr><td>' + _e(x.get("transport")) + '</td><td>' + _e(x.get("model")) + '</td><td>' + _e(x.get("size")) + '</td><td>' + _e(x.get("removable")) + '</td><td>' + _e(x.get("safety")) + '</td><td>' + _e(x.get("mounted_children")) + '</td></tr>' for x in devices) + '</table><h3>Capture jobs</h3><ul>'
+        content += ''.join('<li>' + _e(x.get("job_id")) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("object_id")) + ' / ' + _e(x.get("provenance_classification")) + '</li>' for x in jobs) or '<li>No removable capture jobs recorded.</li>'
+        return 200, "text/html; charset=utf-8", self.page("Removable Media", content + '</ul>', retro), None
 
     def optical_jobs(self, retro):
         jobs = OpticalManager(self.catalogue.archive).jobs(); content = '<p>Read-only optical capture status.</p><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No optical capture jobs recorded.</p>'

@@ -29,6 +29,7 @@ from .flux import FluxManager, FloppyProfile, VerificationPolicy
 from .physical import PhysicalMediaOrchestrator
 from .qualification import QualificationManager, QualificationProfile, SeedPlanManager
 from .analysis import AnalysisLimits, AnalysisManager
+from .removable import RemovableManager
 from .tree_ingest import TreeIngestManager
 
 
@@ -235,6 +236,16 @@ def parser() -> argparse.ArgumentParser:
     media_capture = media_sub.add_parser("capture"); media_capture.add_argument("device"); media_capture.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.ORIGINAL_PHYSICAL_OWNED.value); media_capture.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); media_capture.add_argument("--notes", default="")
     media_sub.add_parser("jobs")
     media_show = media_sub.add_parser("show"); media_show.add_argument("job_id")
+    removable = sub.add_parser("removable", help="preserve removable block media")
+    removable_sub = removable.add_subparsers(dest="removable_command", required=True)
+    removable_sub.add_parser("devices")
+    removable_inspect = removable_sub.add_parser("inspect"); removable_inspect.add_argument("device")
+    removable_plan = removable_sub.add_parser("plan"); removable_plan.add_argument("device")
+    removable_capture = removable_sub.add_parser("capture"); removable_capture.add_argument("device"); removable_capture.add_argument("--physical-medium"); removable_capture.add_argument("--repeat-of"); removable_capture.add_argument("--platform"); removable_capture.add_argument("--vendor"); removable_capture.add_argument("--title"); removable_capture.add_argument("--collection"); removable_capture.add_argument("--media-number"); removable_capture.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.ORIGINAL_PHYSICAL_OWNED.value); removable_capture.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); removable_capture.add_argument("--notes", default=""); removable_capture.add_argument("--verification", choices=["fast", "standard", "archival"], default="standard")
+    removable_sub.add_parser("jobs")
+    removable_show = removable_sub.add_parser("show"); removable_show.add_argument("job_id")
+    removable_inventory = removable_sub.add_parser("inventory"); removable_inventory.add_argument("capture_id")
+    removable_analyze = removable_sub.add_parser("analyze"); removable_analyze.add_argument("capture_id"); removable_analyze.add_argument("--policy", choices=["metadata-only", "identify", "preserve", "archival"], default="metadata-only")
     physical_ingest = media_sub.add_parser("ingest", help="unified safe physical-media ingest")
     physical_ingest.add_argument("--candidate"); physical_ingest.add_argument("--verification", choices=["fast", "standard", "archival"], default="standard"); physical_ingest.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.ORIGINAL_PHYSICAL_OWNED.value); physical_ingest.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); physical_ingest.add_argument("--profile", choices=[x.value for x in FloppyProfile]); physical_ingest.add_argument("--drive"); physical_ingest.add_argument("--tracks"); physical_ingest.add_argument("--title"); physical_ingest.add_argument("--vendor"); physical_ingest.add_argument("--collection"); physical_ingest.add_argument("--volume"); physical_ingest.add_argument("--notes", default=""); physical_ingest.add_argument("--batch", action="store_true"); physical_ingest.add_argument("--max-media", type=int); physical_ingest.add_argument("--dry-run", action="store_true"); physical_ingest.add_argument("--non-interactive", action="store_true"); physical_ingest.add_argument("--confirm", action="store_true"); physical_ingest.add_argument("--json", action="store_true")
     optical = media_sub.add_parser("optical")
@@ -505,6 +516,16 @@ def run(args: argparse.Namespace) -> dict | list:
         if args.media_command == "capture": return manager.capture(args.device, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes)
         if args.media_command == "jobs": return manager.jobs()
         return manager.show(args.job_id)
+    if args.command == "removable":
+        manager = RemovableManager(archive)
+        if args.removable_command == "devices": return manager.devices()
+        if args.removable_command == "inspect": return manager.inspect(args.device)
+        if args.removable_command == "plan": return manager.plan(args.device)
+        if args.removable_command == "jobs": return [manager.public_job(x) for x in manager.jobs()]
+        if args.removable_command == "show": return manager.public_job(manager.show(args.job_id))
+        if args.removable_command == "inventory": return manager.inventory(args.capture_id)
+        if args.removable_command == "analyze": return manager.analyze(args.capture_id, policy=args.policy)
+        return manager.capture(args.device, physical_medium_id=args.physical_medium, repeat_of=args.repeat_of, platform_hint=args.platform, vendor=args.vendor, title=args.title, collection=args.collection, media_number=args.media_number, provenance=args.provenance, rights=Rights(args.rights), notes=args.notes, verification=args.verification)
     if args.command == "resource" or args.command == "resource-set" or args.command == "consumer":
         broker = ResourceBroker(archive, registry=ConsumerRegistry(Path(__file__).parents[2] / "config" / "consumers.json"))
         if args.command == "consumer":

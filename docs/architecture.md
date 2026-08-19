@@ -217,6 +217,39 @@ symlink metadata without following targets, and rejects special files as data.
 It does not package or flatten the tree into another opaque preservation master;
 each contained file retains its own byte identity and provenance relationship.
 
+## Removable Media Preservation (M6.9)
+
+The existing `BlockDeviceAdapter`/`MediaManager` is the removable-media
+capture boundary. `RemovableManager` is only an operator wrapper for discovery,
+safe plan, whole-device capture, inventory, and captured-image analysis. It
+does not copy mounted directories as preservation and does not add another
+CAS.
+
+Discovery uses structured `lsblk` JSON plus existing root/swap checks. It
+records removable status, model/transport/sector evidence, partitions, and
+mounted children. A device is not a safe candidate if it is the active root,
+backs the RAB root, is swap/system storage, or has mounted children. RAB never
+unmounts unrelated devices and never invokes write, repair, or filesystem
+tools against a source. The complete image is staged from LBA zero before
+`Archive.ingest`; short/error output can remain as `PARTIAL` evidence but is
+never reported complete or silently padded.
+
+Physical-medium identity, capture occurrence, byte identity, filesystem
+identity, collection/release, and work remain separate. Repeat captures store
+`repeat_of`, compare SHA-256 values, and retain both results when they differ.
+Identical images converge through normal CAS while occurrences/provenance
+remain distinct. Whole-device jobs use `WHOLE_DEVICE_IMAGE`; partition and
+filesystem/file views are derived analysis representations. Unknown or
+unpartitioned media remains preservable.
+
+`rab removable` is operator-local. API routes under `/api/v1/removable/` and
+RetroWeb `/retro/removable` are read-only and redact device paths, serials,
+staging paths, and operator notes. `inventory` uses the existing non-mounting
+partition/filesystem observation; `analyze` delegates to M6.11 against the
+preserved image. Malware analysis therefore sees derived/captured copies, not
+the source device or preservation master. No hotplug daemon, automatic mount,
+repair, eject, or public capture endpoint is introduced.
+
 ## Watched Inbox Production Service (M6.8)
 
 The watched service is a periodic, restart-safe reconciliation loop over
