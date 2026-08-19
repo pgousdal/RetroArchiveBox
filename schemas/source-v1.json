@@ -26,6 +26,8 @@
     "torrent_client": {"type": "string"},
     "companion_rules": {"type": "object"},
     "metadata_rules": {"type": "object"},
+    "endpoints": {"type": "array", "items": {"type": "object", "required": ["transport", "endpoint"], "properties": {"transport": {"enum": ["rsync", "http", "https", "ftp", "bittorrent", "manual", "physical-media", "archive-org-targeted"]}, "endpoint": {"type": "string"}, "enabled": {"type": "boolean"}, "priority": {"type": ["integer", "null"]}, "notes": {"type": "string"}}, "additionalProperties": false}},
+    "transport_policy": {"type": "object"},
     "notes": {"type": "string"}
   },
   "additionalProperties": false

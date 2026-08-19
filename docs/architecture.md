@@ -251,6 +251,41 @@ or targets preservation storage. Source state is separate
 from preservation state, so upstream disappearance records an event and marks
 the occurrence/package absent without deleting any object.
 
+## Acquisition Transport & Bootstrap Policy (M6.1)
+
+`SourceDefinition` retains one logical source identity while accepting multiple
+endpoint records. Each endpoint has a transport, address, enablement, optional
+priority, and notes. `TransportResolver` selects deterministically for an
+explicit `BOOTSTRAP` or `SYNCHRONIZATION` purpose. Default order is
+BitTorrent, rsync, HTTPS, HTTP, FTP for bootstrap and rsync, HTTPS/HTTP, FTP,
+BitTorrent for synchronization. `transport_policy` can override preferences,
+prohibit transports, or declare runtime/source unavailability. A tied endpoint
+choice returns `AMBIGUOUS`; plans contain selected candidates, rejected reasons,
+capabilities, policy evidence, and no-download dry-run results.
+
+The resolver does not replace M2 acquisition. Selected HTTP/HTTPS calls the
+existing bounded resumable downloader, rsync calls the existing staging-only
+planner/worker, and BitTorrent calls the existing metadata-preserving
+`aria2c`-based boundary. FTP uses stdlib `ftplib` in passive mode with
+anonymous login, binary `RETR`, bounded timeout/size, safe relative paths,
+temporary `.part` files, cleanup, and normal `Archive.ingest`. No transport
+writes `objects`; all bytes cross the existing verification and ingest boundary.
+
+Source events retain transport, endpoint, and acquisition purpose alongside the
+logical source. This is provenance, not authority. Official servers, preferred
+protocols, infohashes, or transport integrity do not establish rights, malware
+status, authenticity, or authority assertions. SHA-256 ingest deduplication
+therefore converges identical bytes acquired through different transports while
+retaining independent source occurrences.
+
+The CLI exposes `rab acquisition transports`, `plan`, and bounded `fetch`.
+Read-only API routes expose transport capabilities, source endpoint plans, and
+purpose-specific plans. RetroWeb only displays endpoint metadata. No fetch
+mutation endpoint, scheduler, automatic large download, or public acquisition
+service was added. Current runtime evidence is rsync `3.4.1`; BitTorrent's
+configured `aria2c` was unavailable and FTP used deterministic local fixtures,
+not a public server.
+
 ## Aminet packages
 
 An Aminet logical ID such as `aminet:comm/term/ncomm307` links independently

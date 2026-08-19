@@ -15,6 +15,7 @@ from .redump import RedumpAuthority
 from .additional_authorities import AdditionalAuthority
 from .broker import BrokerError, ConsumerContext, ConsumerRegistry, DeliveryMode, ResourceBroker, ResolutionState
 from .malware import MalwareStore, aggregate
+from .transports import AcquisitionPurpose, TransportResolver
 
 
 class CatalogueAPI:
@@ -49,6 +50,18 @@ class CatalogueAPI:
             return 200, status
         if route == "/api/v1/sources":
             return 200, [x.public() for x in self.registry.load().values()] if self.registry else []
+        if route == "/api/v1/acquisition/transports":
+            return 200, TransportResolver().capabilities()
+        m = re.fullmatch(r"/api/v1/acquisition/sources/([a-z0-9-]+)", route)
+        if m:
+            if not self.registry: return 404, {"error": "not_found"}
+            source = self.registry.get(m.group(1)); resolver = TransportResolver(torrent_client=source.torrent_client)
+            return 200, {"source": source.public(), "plans": {purpose.value: resolver.plan(source, purpose) for purpose in AcquisitionPurpose}}
+        m = re.fullmatch(r"/api/v1/acquisition/plan/([a-z0-9-]+)", route)
+        if m:
+            if not self.registry: return 404, {"error": "not_found"}
+            source = self.registry.get(m.group(1)); purpose = AcquisitionPurpose(query.get("purpose", [AcquisitionPurpose.SYNCHRONIZATION.value])[0])
+            return 200, TransportResolver(torrent_client=source.torrent_client).plan(source, purpose)
         if route == "/api/v1/authorities":
             return 200, Authority(self.catalogue.archive).list()
         if route == "/api/v1/consumers":

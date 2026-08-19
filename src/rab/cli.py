@@ -19,6 +19,7 @@ from .additional_authorities import AdditionalAuthority
 from .broker import ConsumerContext, ConsumerRegistry, DeliveryMode, ResourceBroker, ResourceKind
 from .web import run_web_server
 from .malware import MalwareStore
+from .transports import AcquisitionPurpose, TransportResolver
 
 
 def parser() -> argparse.ArgumentParser:
@@ -151,6 +152,14 @@ def parser() -> argparse.ArgumentParser:
     malware_show = malware_sub.add_parser("show"); malware_show.add_argument("observation_id")
     malware_sub.add_parser("verify")
     malware_sub.add_parser("rebuild")
+    acquisition = sub.add_parser("acquisition", help="plan and perform policy-selected acquisition")
+    acquisition_sub = acquisition.add_subparsers(dest="acquisition_command", required=True)
+    acquisition_sub.add_parser("transports")
+    acquisition_plan = acquisition_sub.add_parser("plan")
+    acquisition_plan.add_argument("source_id"); acquisition_plan.add_argument("--purpose", choices=[x.value for x in AcquisitionPurpose], default=AcquisitionPurpose.SYNCHRONIZATION.value)
+    acquisition_fetch = acquisition_sub.add_parser("fetch")
+    acquisition_fetch.add_argument("source_id"); acquisition_fetch.add_argument("--purpose", choices=[x.value for x in AcquisitionPurpose], default=AcquisitionPurpose.SYNCHRONIZATION.value)
+    acquisition_fetch.add_argument("--path", required=True); acquisition_fetch.add_argument("--expected-sha256"); acquisition_fetch.add_argument("--expected-size", type=int); acquisition_fetch.add_argument("--dry-run", action="store_true")
     resource = sub.add_parser("resource", help="resolve and deliver consumer resources")
     resource_sub = resource.add_subparsers(dest="resource_command", required=True)
     resource_search = resource_sub.add_parser("search")
@@ -303,6 +312,16 @@ def run(args: argparse.Namespace) -> dict | list:
         if args.malware_command == "verify":
             return malware_store.verify()
         return malware_store.rebuild()
+    if args.command == "acquisition":
+        resolver = TransportResolver()
+        if args.acquisition_command == "transports":
+            return resolver.capabilities()
+        source = registry.get(args.source_id)
+        if args.acquisition_command == "plan":
+            return resolver.plan(source, args.purpose)
+        return resolver.fetch(Acquisition(archive), source, args.purpose, path=args.path,
+                              expected_sha256=args.expected_sha256, expected_size=args.expected_size,
+                              dry_run=args.dry_run)
     if args.command == "resource" or args.command == "resource-set" or args.command == "consumer":
         broker = ResourceBroker(archive, registry=ConsumerRegistry(Path(__file__).parents[2] / "config" / "consumers.json"))
         if args.command == "consumer":

@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import hashlib
+import ftplib
 import json
 import os
+import posixpath
 import shutil
 import subprocess
 import time
 import urllib.error
 import urllib.request
 import uuid
+from urllib.parse import urlparse
 from pathlib import Path
 
 from .errors import IntegrityError, PolicyError, RabError
@@ -109,7 +112,7 @@ class Acquisition:
         if not path.is_file() or path.is_symlink():
             raise RabError(f"source input is not a regular non-symlink file: {path}")
         relative = Path(source_path)
-        if relative.is_absolute() or ".." in relative.parts:
+        if relative.is_absolute() or ".." in relative.parts or "\\" in source_path or "\x00" in source_path:
             raise PolicyError(f"source path must be relative without traversal: {source_path}")
         target = self.staging / source.id / "imports" / relative
         self._check_space(source, path.stat().st_size, target)
@@ -128,7 +131,7 @@ class Acquisition:
     @staticmethod
     def _validate_source_path(source_path: str) -> None:
         relative = Path(source_path)
-        if not source_path or relative.is_absolute() or ".." in relative.parts:
+        if not source_path or relative.is_absolute() or ".." in relative.parts or "\\" in source_path or "\x00" in source_path:
             raise PolicyError(f"source path must be relative without traversal: {source_path}")
 
     def event(self, source: str, path: str | None, kind: str, outcome: str, detail: dict) -> None:
@@ -150,7 +153,8 @@ class Acquisition:
 
     def ingest_completed(self, source: SourceDefinition, source_path: str, completed: Path,
                          media_type: str, title: str | None = None,
-                         expected_sha256: str | None = None) -> str:
+                         expected_sha256: str | None = None,
+                         acquisition_context: dict | None = None) -> str:
         source.validate_policy()
         self._validate_source_path(source_path)
         if completed.name.endswith(".part") or not completed.is_file():
@@ -183,12 +187,14 @@ class Acquisition:
             "rights": source.rights_default.value,
             "mirror_authorized": source.mirror_authorized,
             "platforms": list(source.platforms),
+            **(acquisition_context or {}),
         })
         return result["object_id"]
 
     def acquire_http(self, source: SourceDefinition, relative_path: str,
                      expected_sha256: str | None = None,
-                     expected_size: int | None = None) -> str:
+                     expected_size: int | None = None,
+                     acquisition_context: dict | None = None) -> str:
         if source.backend.value not in {"http", "https"} or not source.location:
             raise PolicyError("HTTP acquisition requires an HTTP(S) source")
         self._validate_source_path(relative_path)
@@ -237,8 +243,10 @@ class Acquisition:
                 complete = partial.with_suffix(".complete")
                 os.replace(partial, complete)
                 try:
+                    context = {"transport": source.backend.value, "endpoint": url}; context.update(acquisition_context or {})
                     result = self.ingest_completed(source, relative_path, complete,
-                                                   "application/octet-stream", expected_sha256=expected_sha256)
+                                                    "application/octet-stream", expected_sha256=expected_sha256,
+                                                    acquisition_context=context)
                     if known_sha != result.split(":", 1)[1]:
                         self.event(source.id, relative_path, "ACQUISITION_COMPLETED", "PASS", {"object_id": result})
                     return result
@@ -250,6 +258,57 @@ class Acquisition:
                     raise RabError(f"acquisition failed for {relative_path}: {exc}") from exc
                 time.sleep(min(2 ** attempt, 8))
         raise AssertionError("unreachable")
+
+    def acquire_ftp(self, source: SourceDefinition, relative_path: str,
+                    expected_sha256: str | None = None, expected_size: int | None = None,
+                    acquisition_context: dict | None = None) -> str:
+        """Acquire one anonymous FTP file into staging, then use normal ingest."""
+        if source.backend.value != "ftp" or not source.location:
+            raise PolicyError("FTP acquisition requires an FTP source")
+        self._validate_source_path(relative_path); self._require_enabled(source)
+        parsed = urlparse(source.location)
+        if parsed.username or parsed.password or not parsed.hostname:
+            raise PolicyError("FTP credentials are not accepted; use anonymous public FTP")
+        target_dir = self.staging / source.id; target_dir.mkdir(parents=True, exist_ok=True)
+        partial = target_dir / (hashlib.sha256((source.location + relative_path).encode()).hexdigest() + ".part")
+        complete = partial.with_suffix(".complete")
+        remote_path = posixpath.join(parsed.path or "/", relative_path)
+        if not remote_path.startswith("/") or ".." in Path(remote_path).parts:
+            raise PolicyError("unsafe FTP path")
+        endpoint = f"ftp://{parsed.hostname}:{parsed.port or 21}{remote_path}"
+        try:
+            if expected_size is not None:
+                self._check_space(source, expected_size, partial)
+            with ftplib.FTP() as client:
+                client.connect(parsed.hostname, parsed.port or 21, timeout=source.timeout)
+                client.login(); client.set_pasv(True)
+                transferred = 0
+                maximum = source.staging_limit_bytes or 4 * 1024 * 1024 * 1024
+                def write_chunk(chunk):
+                    nonlocal transferred
+                    transferred += len(chunk)
+                    if transferred > maximum:
+                        raise PolicyError("FTP transfer exceeds bounded acquisition limit")
+                    output.write(chunk)
+                with partial.open("wb") as output:
+                    client.retrbinary("RETR " + remote_path, write_chunk, blocksize=1024 * 1024)
+            if expected_size is not None and partial.stat().st_size != expected_size:
+                raise IntegrityError("FTP transfer size mismatch")
+            os.replace(partial, complete)
+            context = {"transport": "ftp", "endpoint": endpoint}; context.update(acquisition_context or {})
+            return self.ingest_completed(source, relative_path, complete, "application/octet-stream",
+                                         expected_sha256=expected_sha256, acquisition_context=context)
+        except ftplib.all_errors as exc:
+            self.event(source.id, relative_path, "FTP_ACQUISITION", "FAIL", {"transport": "ftp", "endpoint": endpoint, "error": str(exc)})
+            raise RabError(f"FTP acquisition failed for {relative_path}: {exc}") from exc
+        except (OSError, IntegrityError) as exc:
+            self.event(source.id, relative_path, "FTP_ACQUISITION", "FAIL", {"transport": "ftp", "endpoint": endpoint, "error": str(exc)})
+            raise RabError(f"FTP acquisition failed for {relative_path}: {exc}") from exc
+        except PolicyError as exc:
+            self.event(source.id, relative_path, "FTP_ACQUISITION", "FAIL", {"transport": "ftp", "endpoint": endpoint, "error": str(exc)})
+            raise
+        finally:
+            partial.unlink(missing_ok=True); complete.unlink(missing_ok=True)
 
     def _stream_response(self, response, partial: Path, source: SourceDefinition,
                          offset: int, expected_size: int | None) -> None:
@@ -270,15 +329,17 @@ class Acquisition:
                         time.sleep(min(delay, 1.0))
 
     def acquire_http_paths(self, source: SourceDefinition, paths: list[str],
-                           expected: dict[str, str] | None = None) -> list[str]:
+                           expected: dict[str, str] | None = None,
+                           acquisition_context: dict | None = None) -> list[str]:
         if not paths:
             raise PolicyError("HTTP source sync requires at least one explicit path")
-        return [self.acquire_http(source, path, (expected or {}).get(path)) for path in paths]
+        return [self.acquire_http(source, path, (expected or {}).get(path), acquisition_context=acquisition_context) for path in paths]
 
     def acquire_http_aminet(self, source: SourceDefinition, paths: list[str],
-                            expected: dict[str, str] | None = None) -> dict:
+                            expected: dict[str, str] | None = None,
+                            acquisition_context: dict | None = None) -> dict:
         """Acquire a bounded set of Aminet paths over HTTP and link package pairs."""
-        objects = {path: self.acquire_http(source, path, (expected or {}).get(path)) for path in paths}
+        objects = {path: self.acquire_http(source, path, (expected or {}).get(path), acquisition_context=acquisition_context) for path in paths}
         stems = {path[:-4] for path in paths if path.lower().endswith(".lha")} | {
             path[:-7] for path in paths if path.lower().endswith(".readme")}
         packages = []
@@ -304,11 +365,11 @@ class Acquisition:
         return {"source": source.id, "objects": objects, "packages": packages}
 
     def acquire_torrent(self, source: SourceDefinition, torrent_path: Path,
-                        source_path: str) -> dict:
+                        source_path: str, acquisition_context: dict | None = None) -> dict:
         if source.backend.value != "bittorrent":
             raise PolicyError("torrent acquisition requires the bittorrent backend")
         self._require_enabled(source)
-        metadata = preserve_torrent(self, source, torrent_path, source_path)
+        metadata = preserve_torrent(self, source, torrent_path, source_path, acquisition_context=acquisition_context)
         client_name = source.torrent_client or "aria2c"
         client = shutil.which(client_name)
         if not client:
@@ -325,7 +386,7 @@ class Acquisition:
             command.append(f"--max-overall-download-limit={source.rate_limit}")
         command.extend(["--", str(staged_torrent)])
         self.event(source.id, source_path, "TORRENT_PAYLOAD_ACQUISITION", "STARTED",
-                   {"infohash_v1": metadata["infohash_v1"], "command": command})
+                   {"infohash_v1": metadata["infohash_v1"], "command": command, **(acquisition_context or {})})
         result = subprocess.run(command, check=False, capture_output=True, text=True)
         if result.returncode:
             self.event(source.id, source_path, "TORRENT_PAYLOAD_ACQUISITION", "FAIL",
@@ -342,7 +403,7 @@ class Acquisition:
                                                "application/octet-stream")
             payloads.append({"source_path": relative, "object_id": object_id})
         self.event(source.id, source_path, "TORRENT_PAYLOAD_ACQUIRED", "PASS",
-                   {"infohash_v1": metadata["infohash_v1"], "payloads": payloads})
+                   {"infohash_v1": metadata["infohash_v1"], "payloads": payloads, **(acquisition_context or {})})
         return {**metadata, "payloads": payloads, "command": command}
 
     def plan_rsync(self, source: SourceDefinition, destination: Path, scope: str | None = None) -> list[str]:
@@ -350,7 +411,7 @@ class Acquisition:
         if source.backend.value != "rsync" or not source.location:
             raise PolicyError("rsync plan requires an rsync source")
         destination = self._staging_destination(destination)
-        if scope is not None and (not scope or Path(scope).is_absolute() or ".." in Path(scope).parts):
+        if scope is not None and (not scope or Path(scope).is_absolute() or ".." in Path(scope).parts or "\\" in scope or "\x00" in scope):
             raise PolicyError("rsync scope must be a relative path without traversal")
         command = ["rsync", "--archive", "--partial", "--delay-updates", "--timeout", str(source.timeout)]
         if source.rate_limit:
@@ -360,7 +421,7 @@ class Acquisition:
         return command
 
     def run_rsync(self, source: SourceDefinition, *, dry_run: bool = False,
-                  scope: str | None = None) -> dict:
+                  scope: str | None = None, acquisition_context: dict | None = None) -> dict:
         destination = self._staging_destination(self.staging / source.id / "mirror")
         if dry_run:
             result = self.plan_source(source, scope=scope)
@@ -373,8 +434,8 @@ class Acquisition:
         if result.returncode:
             self.event(source.id, None, "RSYNC", "FAIL", {"returncode": result.returncode, "stderr": result.stderr[-2000:]})
             raise RabError(f"rsync failed with exit code {result.returncode}")
-        self.event(source.id, scope, "ACQUISITION_COMPLETED", "PASS", {"backend": "rsync", "command": command})
-        synchronized = self.sync_aminet(source, destination) if source.companion_rules.get("required_suffix") == ".readme" else None
+        self.event(source.id, scope, "ACQUISITION_COMPLETED", "PASS", {"backend": "rsync", "command": command, **(acquisition_context or {})})
+        synchronized = self.sync_aminet(source, destination, acquisition_context=acquisition_context) if source.companion_rules.get("required_suffix") == ".readme" else None
         return {"source": source.id, "staging": str(destination), "outcome": "PASS",
                 "synchronized": synchronized}
 
@@ -415,7 +476,8 @@ class Acquisition:
         return len(disappeared)
 
     def sync_aminet(self, source: SourceDefinition, directory: Path,
-                    expected: dict[str, str] | None = None) -> dict:
+                    expected: dict[str, str] | None = None,
+                    acquisition_context: dict | None = None) -> dict:
         source.validate_policy()
         self._require_enabled(source)
         directory = directory.resolve()
@@ -441,10 +503,10 @@ class Acquisition:
             try:
                 if payload_path in files:
                     staged = self._stage_file(source, payload_path, files[payload_path]) if self.staging.resolve() not in files[payload_path].resolve().parents else files[payload_path]
-                    payload = self.ingest_completed(source, payload_path, staged, "application/x-lha", expected_sha256=expected.get(payload_path)).split(":", 1)[1]
+                    payload = self.ingest_completed(source, payload_path, staged, "application/x-lha", expected_sha256=expected.get(payload_path), acquisition_context=acquisition_context).split(":", 1)[1]
                 if readme_path in files:
                     staged = self._stage_file(source, readme_path, files[readme_path]) if self.staging.resolve() not in files[readme_path].resolve().parents else files[readme_path]
-                    readme = self.ingest_completed(source, readme_path, staged, "text/plain", expected_sha256=expected.get(readme_path)).split(":", 1)[1]
+                    readme = self.ingest_completed(source, readme_path, staged, "text/plain", expected_sha256=expected.get(readme_path), acquisition_context=acquisition_context).split(":", 1)[1]
             except (IntegrityError, RabError) as exc:
                 failed = True
                 self.event(source.id, stem, "AMINET_PACKAGE", "FAIL", {"error": str(exc)})
@@ -588,7 +650,7 @@ def torrent_infohash(data: bytes) -> str:
 
 
 def preserve_torrent(acquisition: Acquisition, source: SourceDefinition, path: Path,
-                     source_path: str) -> dict:
+                     source_path: str, acquisition_context: dict | None = None) -> dict:
     data = path.read_bytes()
     infohash = torrent_infohash(data)
     try:
@@ -596,6 +658,8 @@ def preserve_torrent(acquisition: Acquisition, source: SourceDefinition, path: P
         staged = path
     except ValueError:
         staged = acquisition._stage_file(source, source_path, path)
-    object_id = acquisition.ingest_completed(source, source_path, staged, "application/x-bittorrent", path.name)
-    acquisition.event(source.id, source_path, "TORRENT_METADATA", "PASS", {"object_id": object_id, "infohash_v1": infohash})
+    context = {"transport": "bittorrent"}; context.update(acquisition_context or {})
+    object_id = acquisition.ingest_completed(source, source_path, staged, "application/x-bittorrent", path.name,
+                                             acquisition_context=context)
+    acquisition.event(source.id, source_path, "TORRENT_METADATA", "PASS", {"object_id": object_id, "infohash_v1": infohash, **context})
     return {"object_id": object_id, "infohash_v1": infohash, "source": source.id, "source_path": source_path}

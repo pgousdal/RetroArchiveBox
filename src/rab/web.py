@@ -138,7 +138,7 @@ class WebApplication:
 
     def source(self, source_id, retro):
         source = self.api.registry.get(source_id) if self.api.registry else None; prefix = "/retro" if retro else "/web"
-        content = '<p><strong>' + _e(source.name) + '</strong></p><dl><dt>Source ID</dt><dd>' + _e(source.id) + '</dd><dt>Class</dt><dd>' + _e(source.source_class.value) + '</dd><dt>Backend</dt><dd>' + _e(source.backend.value) + '</dd><dt>Platforms</dt><dd>' + _e(', '.join(source.platforms)) + '</dd></dl><p><a href="' + _url(prefix + '/search', source=source.id) + '">Browse this source</a></p>'
+        content = '<p><strong>' + _e(source.name) + '</strong></p><dl><dt>Source ID</dt><dd>' + _e(source.id) + '</dd><dt>Class</dt><dd>' + _e(source.source_class.value) + '</dd><dt>Platforms</dt><dd>' + _e(', '.join(source.platforms)) + '</dd></dl><h3>Acquisition transports</h3><ul>' + ''.join('<li>' + _e(x["transport"]) + ': ' + _e(x["endpoint"]) + '</li>' for x in source.endpoints) + '</ul><p><a href="' + _url(prefix + '/search', source=source.id) + '">Browse this source</a></p>'
         return 200, "text/html; charset=utf-8", self.page("Source", content, retro), None
 
     def resource(self, resource_id, retro):

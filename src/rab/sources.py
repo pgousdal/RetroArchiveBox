@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -33,6 +33,8 @@ class SourceDefinition:
     torrent_client: str | None
     companion_rules: dict
     metadata_rules: dict
+    endpoints: tuple[dict, ...] = ()
+    transport_policy: dict = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, value: dict) -> "SourceDefinition":
@@ -40,8 +42,8 @@ class SourceDefinition:
         allowed = required | {"location", "enabled", "mirror_authorized", "platforms", "notes",
                               "schedule", "concurrency", "rate_limit_bytes_per_second",
                               "timeout_seconds", "retries", "allow_redirects", "staging_limit_bytes",
-                              "minimum_free_space_bytes", "torrent_client", "companion_rules",
-                              "metadata_rules"}
+                               "minimum_free_space_bytes", "torrent_client", "companion_rules",
+                               "metadata_rules", "endpoints", "transport_policy"}
         missing = sorted(required - value.keys())
         if missing:
             raise RabError(f"source definition missing: {', '.join(missing)}")
@@ -84,6 +86,43 @@ class SourceDefinition:
             expected = {Backend.HTTP: "http", Backend.HTTPS: "https", Backend.RSYNC: "rsync"}[backend]
             if scheme != expected:
                 raise RabError(f"{backend.value} source requires {expected} location")
+        endpoints = value.get("endpoints")
+        if endpoints is None:
+            endpoints = ([{"transport": backend.value, "endpoint": location, "enabled": True}]
+                         if location else [])
+        if not isinstance(endpoints, list) or (not endpoints and backend not in {Backend.MANUAL, Backend.PHYSICAL_MEDIA, Backend.BITTORRENT}):
+            raise RabError("source endpoints must be a non-empty list")
+        normalized_endpoints = []
+        for endpoint in endpoints:
+            if not isinstance(endpoint, dict) or "transport" not in endpoint or "endpoint" not in endpoint:
+                raise RabError("source endpoint requires transport and endpoint")
+            try:
+                transport = Backend(endpoint["transport"])
+            except ValueError as exc:
+                raise RabError(f"invalid endpoint transport: {endpoint.get('transport')}") from exc
+            address = endpoint["endpoint"]
+            if not isinstance(address, str) or not address or any(x in address for x in ("\n", "\r")):
+                raise RabError("invalid source endpoint")
+            if not isinstance(endpoint.get("enabled", True), bool):
+                raise RabError("source endpoint enabled must be boolean")
+            if endpoint.get("priority") is not None and (not isinstance(endpoint["priority"], int) or endpoint["priority"] < 0):
+                raise RabError("source endpoint priority must be a non-negative integer")
+            parsed = urlparse(address)
+            if parsed.username or parsed.password:
+                raise PolicyError("source endpoint credentials must not be stored in Git")
+            if transport in {Backend.HTTP, Backend.HTTPS, Backend.RSYNC, Backend.FTP} and parsed.scheme != transport.value:
+                raise RabError(f"{transport.value} endpoint requires {transport.value} URL")
+            normalized_endpoints.append({"transport": transport.value, "endpoint": address,
+                                         "enabled": endpoint.get("enabled", True),
+                                         "priority": endpoint.get("priority"),
+                                         "notes": endpoint.get("notes", "")})
+        transport_policy = value.get("transport_policy", {})
+        if not isinstance(transport_policy, dict):
+            raise RabError("transport_policy must be an object")
+        for policy_key, policy_value in transport_policy.items():
+            if policy_key in {"bootstrap", "synchronization", "preferences", "prohibited", "unavailable", "prohibited_bootstrap", "prohibited_synchronization"}:
+                if not isinstance(policy_value, list) or any(not isinstance(x, str) for x in policy_value):
+                    raise RabError(f"transport policy {policy_key} must be a list of strings")
         definition = cls(
             source_id, value["name"], source_class, backend, bulk, rights,
             location, value.get("enabled", False), value.get("mirror_authorized", False),
@@ -91,6 +130,7 @@ class SourceDefinition:
             concurrency, value.get("rate_limit_bytes_per_second"), timeout, retries,
             allow_redirects, staging_limit, minimum_free, value.get("torrent_client"),
             value.get("companion_rules", {}), value.get("metadata_rules", {}),
+            tuple(normalized_endpoints), transport_policy,
         )
         definition.validate_policy()
         return definition
@@ -120,6 +160,7 @@ class SourceDefinition:
             "minimum_free_space_bytes": self.minimum_free_space_bytes,
             "torrent_client": self.torrent_client,
             "companion_rules": self.companion_rules, "metadata_rules": self.metadata_rules,
+            "endpoints": [dict(x) for x in self.endpoints], "transport_policy": self.transport_policy,
         }
 
 

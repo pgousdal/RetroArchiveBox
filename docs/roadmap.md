@@ -197,6 +197,25 @@ database qualification, commercial engines, native scanners, and behavioral
 analysis remain future work. M5.1 is complete for this demonstrated scope;
 museum-grade status remains **NO**.
 
+## M6.1 Acquisition Transport & Bootstrap Policy (2026-08-19)
+
+M6.1 makes acquisition transports first-class without creating a second
+acquisition subsystem. One logical source may expose multiple endpoints and a
+purpose-aware resolver selects bootstrap or synchronization transport using
+documented defaults, source overrides, prohibitions, runtime availability, and
+ambiguity handling. Existing HTTP, rsync, and BitTorrent staging/ingest paths
+are reused; anonymous passive binary FTP is implemented through the same staging
+and ingest boundary. Transport and logical-source provenance are recorded
+separately, and identical bytes still deduplicate as one preservation master.
+
+CLI planning/fetch, API read/plan routes, source endpoint inspection, FTP
+failure/path protections, cross-transport deduplication, and deterministic
+policy tests are included. HTTP regression and prior BitTorrent/rsync tests
+remain passing. The available rsync binary was `3.4.1`; `aria2c` was unavailable
+and no public FTP endpoint was qualified. FTP qualification is local-fixture
+only. No large public collection, automatic synchronization, Archive.org work,
+or consumer integration was started. Museum-grade status remains **NO**.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

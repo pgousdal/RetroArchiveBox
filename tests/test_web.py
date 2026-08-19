@@ -69,6 +69,7 @@ def test_web_filters_browse_sets_and_is_read_only(tmp_path):
     for route in ("/platforms", "/platform/amiga", "/sources", "/source/aminet"):
         status, _, body, _ = app.dispatch("GET", prefix + route)
         assert status == 200 and "<html" in body.lower()
+    assert "Acquisition transports" in app.dispatch("GET", prefix + "/source/aminet")[2]
     resource_id = "aminet:comm/term/ncomm307"
     set_value = app.broker.define_set("amiga:ncomm", [{"role": "package", "resource_id": resource_id}])
     # Rebuild the broker index before the read-only web process sees the set.

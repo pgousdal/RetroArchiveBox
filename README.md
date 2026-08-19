@@ -171,6 +171,31 @@ byte-identical before and after scanning. This is real ClamAV runtime evidence,
 not Debian 13 VM provisioning qualification; Debian production qualification
 remains not performed.
 
+## M6.1 Acquisition Transport & Bootstrap Policy
+
+Acquisition now treats one logical source as a set of policy-controlled
+transport endpoints. Bootstrap defaults to BitTorrent, rsync, HTTPS, HTTP,
+then FTP. Synchronization defaults to rsync, HTTPS/HTTP, FTP, then BitTorrent
+snapshots. Source policy may override, prohibit, or declare transports
+unavailable; equal candidates are reported ambiguous rather than guessed.
+`rab acquisition transports`, `plan`, and `fetch` expose the decision and its
+rejected-candidate evidence before any transfer.
+
+Existing M2 HTTP, rsync, and BitTorrent staging/ingest paths remain the actual
+acquisition boundary. FTP adds anonymous passive binary transfer with bounded
+staging and normal RAB ingest. Transport provenance is recorded separately from
+logical source identity, including purpose, endpoint, and transport-specific
+evidence. Identical bytes converge through the existing SHA-256 object store;
+transport choice never changes preservation identity.
+
+Transport is not authority. An official endpoint or preferred protocol does
+not establish authenticity, rights, malware safety, or authority status. No
+large collection was downloaded for M6.1. Current qualification used local
+fixtures and existing bounded HTTP behavior; rsync is available as version
+`3.4.1`, while `aria2c` was unavailable in the development environment and no
+public FTP endpoint was qualified. RetroWeb exposes source endpoint metadata
+read-only; it is not an acquisition control panel.
+
 ## M4.1 authority assertions
 
 `rab authority import FILE.dat` preserves the original TOSEC DAT through M1,
