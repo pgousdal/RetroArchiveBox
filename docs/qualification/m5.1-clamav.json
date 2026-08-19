@@ -1,0 +1,41 @@
+{
+  "schema": "rab-clamav-qualification-v1",
+  "qualified_at": "2026-08-19T12:51:33Z",
+  "environment": {
+    "distribution": "Ubuntu 26.04 LTS",
+    "architecture": "x86_64",
+    "clamav_version": "1.5.3",
+    "package": "1.5.3+dfsg-0ubuntu0.26.04.1",
+    "package_source": "official Ubuntu archive",
+    "debian_13_production": "NOT_PERFORMED"
+  },
+  "database": {
+    "reference": "local-eicar-hdb",
+    "type": "deterministic local HDB qualification database",
+    "sha256": "124724afca2663090d1cddc451f0d233840a3b0ab173efe58f3cc7470616d002",
+    "official_continuously_updated_database": false
+  },
+  "fixtures": {
+    "clean": {
+      "object_id": "sha256:9e64ba4259ab8093509931fb6f066d353175ebfa22a51a7053ef913332204ed7",
+      "result": "CLEAN",
+      "scanner": "clamav"
+    },
+    "eicar": {
+      "object_id": "sha256:275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f",
+      "result": "DETECTED",
+      "detection": "EICAR_Test_Signature.UNOFFICIAL",
+      "scanner": "clamav"
+    }
+  },
+  "verification": {
+    "masters_unchanged": true,
+    "raw_evidence_retained": true,
+    "malware_index_rebuild_semantically_equivalent": true,
+    "catalogue_rebuild_completed": true,
+    "api_reads_completed": true,
+    "resource_broker_policy_completed": true,
+    "retroweb_read_completed": true,
+    "scanner_quarantine_or_repair": false
+  }
+}

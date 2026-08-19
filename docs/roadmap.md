@@ -172,8 +172,30 @@ API, Resource Broker delivery-policy hooks, and zero-JavaScript RetroWeb status
 display are integrated. Bounded ZIP/TAR extraction protects against traversal,
 links, depth, count, and expanded-size abuse. Native-platform scanning,
 behavioral analysis, live malware, and automatic background scanning remain
-future work. `clamscan` was not installed here, so real ClamAV/EICAR
-qualification is **NOT PERFORMED**. Museum-grade status remains **NO**.
+future work. At the original M5 baseline `clamscan` was not installed, so real
+qualification was not performed; M5.1 records the later bounded runtime
+qualification. Museum-grade status remains **NO**.
+
+## M5.1 Operational ClamAV Qualification (2026-08-19)
+
+M5.1 hardens the ClamAV path with explicit official-package provisioning for
+`clamav` and `clamav-freshclam`, independent signature-update policy, ClamAV
+version/signature metadata parsing, raw-evidence retention, and failure-safe
+observation behavior. Both package installation and freshclam are disabled by
+default; no automatic archive scanning or destructive action is introduced.
+
+Real ClamAV execution was qualified on the available Ubuntu 26.04 x86_64
+environment using official Ubuntu ClamAV 1.5.3 packages outside the repository.
+A clean fixture produced `CLEAN`; the standard EICAR test artifact produced
+`DETECTED` using a local deterministic HDB signature. Observations retained
+scanner version and database SHA-256 provenance, and clean/EICAR preservation
+masters were byte-identical before and after scanning. API, Resource Broker,
+RetroWeb, policy, catalogue rebuild, malware-index rebuild, failure, and
+read-only paths were exercised. Debian 13 provisioning/idempotence was not
+available and is **NOT PERFORMED**. Official continuously updated signature
+database qualification, commercial engines, native scanners, and behavioral
+analysis remain future work. M5.1 is complete for this demonstrated scope;
+museum-grade status remains **NO**.
 
 ## M3 catalogue, search & API
 

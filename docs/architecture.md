@@ -119,6 +119,32 @@ Amiga, DOS, Windows, Mac, and other native scanners consume Resource Broker
 materialized copies in disposable emulators/VMs; masters are never writable or
 mounted into those environments.
 
+## M5.1 ClamAV Operational Boundary
+
+The Debian role installs the official `clamav` and `clamav-freshclam` packages
+only when `rab_clamav_enabled=true`. The freshclam service is separately
+controlled by `rab_clamav_freshclam_enabled` and defaults stopped/disabled.
+RAB does not perform uncontrolled Internet updates, require signatures at
+startup, install commercial engines, or schedule archive scans. The package
+names were checked against available Debian-family package metadata; a Debian
+13 VM run was not available in this milestone.
+
+ClamAV version output is parsed for engine/scanner version and, when present,
+the slash-delimited signature database version/date. Observation provenance can
+also carry a local database reference and SHA-256. Every later signature state
+creates another observation; old sidecars are never overwritten. A missing
+database or nonzero scanner failure becomes `ERROR`/`INCONCLUSIVE`, never clean.
+
+Bounded runtime qualification used official Ubuntu 26.04 x86_64 ClamAV 1.5.3
+package binaries outside the repository, a clean fixture, and the standard
+EICAR test artifact with a local deterministic HDB signature. The clean result
+was `CLEAN`; EICAR was `DETECTED` as `EICAR_Test_Signature.UNOFFICIAL`. The
+database provenance SHA-256 was recorded in both observations. Master hashes
+were identical before and after scan, catalogue/API/Resource Broker/RetroWeb
+reads, malware-index deletion, and malware-index rebuild. This qualifies the
+real ClamAV execution path on Ubuntu, not Debian production provisioning or
+the official continuously updated ClamAV database.
+
 ## Consumer Resource Broker v1
 
 The broker is a derived consumer plane above M1 preservation and the M2/M3

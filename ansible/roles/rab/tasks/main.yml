@@ -12,9 +12,19 @@
 
 - name: Install optional Debian ClamAV command-line scanner
   ansible.builtin.apt:
-    name: clamav
+    name:
+      - clamav
+      - clamav-freshclam
     state: present
     update_cache: true
+  when: rab_clamav_enabled
+
+- name: Apply explicit ClamAV signature updater policy
+  ansible.builtin.systemd_service:
+    name: clamav-freshclam.service
+    enabled: "{{ rab_clamav_freshclam_enabled }}"
+    state: "{{ 'started' if rab_clamav_freshclam_enabled else 'stopped' }}"
+    daemon_reload: true
   when: rab_clamav_enabled
 
 - name: Create RAB system group

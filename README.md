@@ -149,8 +149,27 @@ policy without changing rights policy. RetroWeb displays escaped detection
 names and status without JavaScript and never grants a denied download.
 ZIP/TAR extraction is optional and bounded against traversal, links, file-count,
 size, and depth abuse. Native-platform scanners and behavioral analysis remain
-future disposable-environment work. No real ClamAV qualification was performed
-because `clamscan` was unavailable; no live malware was acquired.
+future disposable-environment work. The original M5 baseline did not perform
+real ClamAV qualification because `clamscan` was unavailable; M5.1 records the
+later bounded runtime qualification. No live malware was acquired.
+
+## M5.1 Operational ClamAV Qualification
+
+M5.1 adds explicit Debian-family provisioning for `clamav` and
+`clamav-freshclam`, both disabled by default through `rab_clamav_enabled` and
+`rab_clamav_freshclam_enabled`. Enabling the scanner does not enable signature
+updates or background archive scans. Signature updates are an explicit
+operator-controlled lifecycle; RAB startup never requires an Internet update.
+
+Real ClamAV execution was qualified in the available Ubuntu 26.04 x86_64
+environment using official Ubuntu `1.5.3+dfsg-0ubuntu0.26.04.1` packages
+extracted outside the repository. A clean fixture normalized to `CLEAN` and the
+standard EICAR test artifact normalized to `DETECTED` using a local deterministic
+ClamAV HDB signature. Raw output, scanner version, database SHA-256 provenance,
+and immutable observations were retained. Both preservation masters were
+byte-identical before and after scanning. This is real ClamAV runtime evidence,
+not Debian 13 VM provisioning qualification; Debian production qualification
+remains not performed.
 
 ## M4.1 authority assertions
 
