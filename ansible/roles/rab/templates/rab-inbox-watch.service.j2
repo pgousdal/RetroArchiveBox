@@ -1,0 +1,24 @@
+[Unit]
+Description=Retro Archive Box watched inbox ingest
+After=local-fs.target
+
+[Service]
+Type=simple
+User={{ rab_user }}
+Group={{ rab_group }}
+Environment=RAB_ROOT={{ rab_root }}
+ExecStart=/opt/rab/venv/bin/rab --root {{ rab_root }} local-ingest inbox watch --loop --interval {{ rab_inbox_scan_interval_seconds }} --stability {{ rab_inbox_stability_seconds }} --min-age {{ rab_inbox_min_age_seconds }} --post-success {{ rab_inbox_post_success }}
+NoNewPrivileges=true
+UMask=0077
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ rab_root }}
+RestrictAddressFamilies=AF_UNIX
+Restart=on-failure
+RestartSec=5s
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

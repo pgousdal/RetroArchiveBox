@@ -12,7 +12,7 @@ from .errors import PolicyError, RabError
 from .bootstrap import BootstrapStore
 from .identity import IdentityCatalogue
 from .products import ProductBuilder
-from .local_ingest import IngestManager
+from .local_ingest import IngestManager, WatchedInboxManager
 from .media import MediaManager, OpticalManager
 from .flux import FluxManager
 from .tree_ingest import TreeIngestManager
@@ -79,6 +79,7 @@ class WebApplication:
             if route.startswith("/identity/"): return self.identity(unquote(route.removeprefix("/identity/")), retro)
             if route == "/products": return self.products(retro)
             if route == "/ingest": return self.ingest_jobs(retro)
+            if route == "/inboxes": return self.inboxes(retro)
             if route == "/media": return self.media_jobs(retro)
             if route == "/optical": return self.optical_jobs(retro)
             if route == "/flux": return self.flux_jobs(retro)
@@ -179,9 +180,17 @@ class WebApplication:
 
     def ingest_jobs(self, retro):
         jobs = IngestManager(self.catalogue.archive, read_only=True).jobs(); trees = TreeIngestManager(self.catalogue.archive).jobs(); prefix = "/retro" if retro else "/web"
-        content = '<p>Read-only local ingest status.</p><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("provenance_classification")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No local file ingest jobs recorded.</p>'
+        watch = WatchedInboxManager(self.catalogue.archive, read_only=True).status()
+        content = '<p>Read-only local ingest status. Watcher state: ' + _e(watch.get("watcher", {}).get("last_scan", "NOT_RUNNING")) + '.</p><p><a href="' + prefix + '/inboxes">Configured inboxes and pending files</a></p><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("provenance_classification")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No local file ingest jobs recorded.</p>'
         if trees: content += '<h3>Tree ingest</h3><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("manifest_sha256")) + '</li>' for x in trees) + '</ul>'
         return 200, "text/html; charset=utf-8", self.page("Local Ingest", content, retro), None
+
+    def inboxes(self, retro):
+        value = WatchedInboxManager(self.catalogue.archive, read_only=True).status(); prefix = "/retro" if retro else "/web"
+        content = '<p>Read-only watched inbox status. Source files remain in place by default.</p><p>Last scan: ' + _e(value.get("watcher", {}).get("last_scan", "NOT_RUN")) + '</p><table><tr><th>Inbox</th><th>Enabled</th><th>Provenance</th><th>Rights</th><th>Recursive</th><th>Path</th></tr>'
+        for item in value.get("inboxes", []): content += '<tr><td>' + _e(item.get("inbox_id")) + '</td><td>' + _e(item.get("enabled")) + '</td><td>' + _e(item.get("provenance")) + '</td><td>' + _e(item.get("rights")) + '</td><td>' + _e(item.get("recursive")) + '</td><td>' + _e(item.get("inbox_id")) + '</td></tr>'
+        content += '</table><h3>File states</h3><ul>' + ''.join('<li>' + _e(item.get("logical_path")) + ': ' + _e(item.get("status")) + (' / ' + _e(item.get("object_id")) if item.get("object_id") else '') + (' / ' + _e(item.get("error")) if item.get("error") else '') + '</li>' for item in value.get("file_states", [])) + '</ul><h3>Summary</h3><ul>' + ''.join('<li>' + _e(key) + ': ' + _e(item) + '</li>' for key, item in value.get("states", {}).items()) + '</ul>'
+        return 200, "text/html; charset=utf-8", self.page("Watched Inboxes", content, retro), None
 
     def media_jobs(self, retro):
         jobs = MediaManager(self.catalogue.archive).jobs(); content = '<p>Read-only physical capture status.</p><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No media capture jobs recorded.</p>'

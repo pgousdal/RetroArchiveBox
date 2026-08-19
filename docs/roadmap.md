@@ -319,6 +319,32 @@ operator UX/auto-detection, real hardware qualification, deeper optical
 qualification, recursive filesystem analysis, tape/cartridge capture, and
 public derived-product publication. Museum-grade status remains **NO**.
 
+## M6.8 Watched Inbox Production Service (2026-08-19)
+
+M6.8 turns the existing local inbox scan into an opt-in periodic service. It
+supports extensible inbox policies, stable-file detection, atomic producer
+suffixes, provenance/rights separation, exact duplicate convergence, durable
+fingerprint state, exclusive claims, bounded retries, source-preserving
+post-success policies, optional safe sidecars, recursive `TreeIngestManager`
+handoff, free-space/staging limits, identity/catalogue integration, and
+non-destructive malware hooks. CLI, read-only API, RetroWeb, JSON schema,
+systemd, and Ansible status/configuration are included.
+
+Deterministic qualification uses generated harmless files only. It covers
+stability changes, temporary suffixes, unknown files, duplicate occurrences,
+source non-mutation, move/delete opt-ins, malformed sidecars, recursive tree
+ingest, failure visibility, API redaction, and RetroWeb display. A local CLI
+qualification demonstrated a purchased file becoming stable, preserving exact
+bytes once, retaining the source, and recording `purchased_download`.
+
+The watcher state file is disposable operational evidence; preservation
+objects, occurrences, jobs, and append-only events remain authoritative. Real
+Debian 13 service execution and long-running production soak are **NOT
+PERFORMED**. Next milestone: M6.9 Unified Physical Media Operator UX /
+Auto-Detection. Later hardware qualification, contained-object discovery,
+deeper optical qualification, tape/cartridge adapters, and public derived
+products remain open. Museum-grade status remains **NO**.
+
 ## M3 catalogue, search & API
 
 M3 adds a disposable, versioned SQLite/FTS5 catalogue, deterministic rebuild

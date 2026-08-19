@@ -23,7 +23,7 @@ from .transports import AcquisitionPurpose, TransportResolver
 from .bootstrap import BootstrapOrchestrator, BootstrapStore
 from .identity import IdentityCatalogue
 from .products import ProductBuilder
-from .local_ingest import IngestManager, ProvenanceClass
+from .local_ingest import IngestManager, ProvenanceClass, WatchedInboxManager
 from .media import MediaManager, OpticalManager
 from .flux import FluxManager, FloppyProfile, VerificationPolicy
 from .tree_ingest import TreeIngestManager
@@ -192,6 +192,12 @@ def parser() -> argparse.ArgumentParser:
     local_show = local_sub.add_parser("show"); local_show.add_argument("job_id")
     local_file = local_sub.add_parser("file"); local_file.add_argument("path", type=Path); local_file.add_argument("--category", choices=IngestManager.CATEGORIES, default="unknown"); local_file.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.UNKNOWN.value); local_file.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); local_file.add_argument("--notes", default="")
     inbox_scan = local_sub.add_parser("inbox-scan"); inbox_scan.add_argument("--category", choices=IngestManager.CATEGORIES)
+    inbox = local_sub.add_parser("inbox", help="inspect and operate configured watched inboxes")
+    inbox_sub = inbox.add_subparsers(dest="inbox_command", required=True)
+    inbox_sub.add_parser("list")
+    inbox_sub.add_parser("status")
+    inbox_scan_command = inbox_sub.add_parser("scan"); inbox_scan_command.add_argument("--config", type=Path); inbox_scan_command.add_argument("--stability", type=float, default=1.0); inbox_scan_command.add_argument("--min-age", type=float, default=0.0); inbox_scan_command.add_argument("--post-success", choices=["LEAVE", "MOVE_TO_PROCESSED", "DELETE_AFTER_VERIFIED_INGEST"], default="LEAVE")
+    inbox_watch = inbox_sub.add_parser("watch"); inbox_watch.add_argument("--config", type=Path); inbox_watch.add_argument("--interval", type=float, default=30.0); inbox_watch.add_argument("--stability", type=float, default=1.0); inbox_watch.add_argument("--min-age", type=float, default=0.0); inbox_watch.add_argument("--post-success", choices=["LEAVE", "MOVE_TO_PROCESSED", "DELETE_AFTER_VERIFIED_INGEST"], default="LEAVE"); inbox_watch.add_argument("--once", action="store_true"); inbox_watch.add_argument("--loop", action="store_true"); inbox_watch.add_argument("--max-cycles", type=int)
     tree = local_sub.add_parser("tree"); tree.add_argument("directory", type=Path); tree.add_argument("--category", choices=IngestManager.CATEGORIES, default="unknown"); tree.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.UNKNOWN.value); tree.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); tree.add_argument("--notes", default="")
     media = sub.add_parser("media", help="inspect and capture physical media")
     media_sub = media.add_subparsers(dest="media_command", required=True)
@@ -404,6 +410,12 @@ def run(args: argparse.Namespace) -> dict | list:
         if args.local_command == "show": return manager.show(args.job_id)
         if args.local_command == "file": return manager.ingest_file(args.path, category=args.category, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes)
         if args.local_command == "tree": return TreeIngestManager(archive).ingest(args.directory, category=args.category, rights=Rights(args.rights), provenance=args.provenance, notes=args.notes)
+        if args.local_command == "inbox":
+            watched = WatchedInboxManager(archive, config_path=args.config if hasattr(args, "config") else None, default_stability_seconds=getattr(args, "stability", 1.0), default_min_age_seconds=getattr(args, "min_age", 0.0), default_post_success=getattr(args, "post_success", "LEAVE"))
+            if args.inbox_command == "list": return watched.list_inboxes()
+            if args.inbox_command == "status": return watched.status()
+            if args.inbox_command == "scan": return watched.scan_once()
+            return watched.watch(interval_seconds=args.interval, once=args.once or not args.loop, max_cycles=args.max_cycles)
         return manager.scan_inbox(args.category)
     if args.command == "media":
         if args.media_command == "optical":
@@ -461,7 +473,12 @@ def run(args: argparse.Namespace) -> dict | list:
 
 def main(argv: list[str] | None = None) -> int:
     try:
-        result = run(parser().parse_args(argv))
+        values = list(argv) if argv is not None else sys.argv[1:]
+        for index in range(len(values) - 1):
+            if values[index:index + 2] == ["ingest", "inbox"]:
+                values[index:index + 2] = ["local-ingest", "inbox"]
+                break
+        result = run(parser().parse_args(values))
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0 if not isinstance(result, dict) or result.get("outcome") != "FAIL" else 1
     except (RabError, OSError) as exc:

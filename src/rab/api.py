@@ -19,7 +19,7 @@ from .transports import AcquisitionPurpose, TransportResolver
 from .bootstrap import BootstrapStore
 from .identity import IdentityCatalogue
 from .products import ProductBuilder
-from .local_ingest import IngestManager
+from .local_ingest import IngestManager, WatchedInboxManager
 from .media import MediaManager, OpticalManager
 from .flux import FluxManager
 from .tree_ingest import TreeIngestManager
@@ -66,6 +66,10 @@ class CatalogueAPI:
             return 200, ProductBuilder(self.catalogue.archive, identity=identity).list()
         local_ingest = IngestManager(self.catalogue.archive, read_only=True)
         if route == "/api/v1/ingest/status": return 200, local_ingest.status()
+        watched_inbox = WatchedInboxManager(self.catalogue.archive, read_only=True)
+        if route == "/api/v1/ingest/inboxes": return 200, [self._public_inbox(x) for x in watched_inbox.list_inboxes()]
+        if route == "/api/v1/ingest/inbox/status": return 200, self._public_inbox_status(watched_inbox.status())
+        if route == "/api/v1/ingest/watcher": return 200, watched_inbox.status()["watcher"]
         if route == "/api/v1/ingest/jobs": return 200, [self._public_ingest_job(x) for x in local_ingest.jobs()]
         m = re.fullmatch(r"/api/v1/ingest/jobs/([0-9a-f]+)", route)
         if m: return 200, self._public_ingest_job(local_ingest.show(m.group(1)))
@@ -221,6 +225,9 @@ class CatalogueAPI:
     @staticmethod
     def _public_ingest_job(job):
         value = {**job, "source_descriptor": {k: v for k, v in job.get("source_descriptor", {}).items() if k != "original_path"}}
+        if job.get("inbox"):
+            value["source_descriptor"] = {"category": value["source_descriptor"].get("category"), "description": "watched inbox"}
+            value.pop("operator_metadata", None)
         return value
 
     @staticmethod
@@ -238,6 +245,14 @@ class CatalogueAPI:
         if isinstance(value.get("adapter"), dict):
             value["adapter"] = {k: v for k, v in value["adapter"].items() if k != "raw_info"}
         return value
+
+    @staticmethod
+    def _public_inbox(value):
+        return {key: item for key, item in value.items() if key != "path"}
+
+    @classmethod
+    def _public_inbox_status(cls, value):
+        return {**value, "inboxes": [cls._public_inbox(x) for x in value.get("inboxes", [])]}
 
     def download_object(self, identifier: str, *, public: bool = False) -> dict:
         sha = self.catalogue.archive.resolve(identifier)

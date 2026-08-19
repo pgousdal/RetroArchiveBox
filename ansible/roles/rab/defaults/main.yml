@@ -29,3 +29,8 @@ rab_optical_enabled: false
 rab_greaseweazle_enabled: false
 rab_greaseweazle_version: v1.23
 rab_greaseweazle_source: "git+https://github.com/keirf/greaseweazle.git@{{ rab_greaseweazle_version }}"
+rab_inbox_watch_enabled: false
+rab_inbox_scan_interval_seconds: 30
+rab_inbox_stability_seconds: 5
+rab_inbox_min_age_seconds: 2
+rab_inbox_post_success: LEAVE

@@ -217,6 +217,62 @@ symlink metadata without following targets, and rejects special files as data.
 It does not package or flatten the tree into another opaque preservation master;
 each contained file retains its own byte identity and provenance relationship.
 
+## Watched Inbox Production Service (M6.8)
+
+The watched service is a periodic, restart-safe reconciliation loop over
+configured acquisition boundaries. It does not create another CAS or ingest
+engine:
+
+```text
+configured inbox -> discovered -> stable/complete -> claim lock
+       -> existing IngestManager -> Archive.ingest -> identity/catalogue
+       -> optional non-destructive malware observation -> job/status evidence
+```
+
+`InboxPolicy` is data-driven and supports multiple roots, provenance and
+rights defaults, recursive tree handling, age/size/stability limits, include /
+exclude patterns, temporary suffixes, retry limits, malware/catalogue hooks,
+and explicit post-success behavior. Built-in policies map `purchased` to
+`purchased_download`, `downloads` to `downloaded`, `personal` to
+`personal_copy`, and `unknown` to `unknown`. None of these mappings infer
+redistribution rights, ownership, piracy, or authenticity.
+
+Readiness requires a regular non-symlink file, matching size and mtime across
+two observations, minimum age, configured filename policy, and available
+staging/free space. `.part`, `.partial`, `.tmp`, and `.crdownload` are ignored
+by default and atomic rename is the recommended producer convention. Recursive
+policies hand stable directory trees to `TreeIngestManager`; ordinary policies
+do not recurse arbitrary directories. Special files and symlink escapes are
+never treated as payloads.
+
+Watcher claims use exclusive lock files with stale-claim recovery. Fingerprints
+and status are persisted under `local-ingest/inbox-state.json`; this is
+operational derived state, not preservation truth. Existing completed jobs are
+matched by source and SHA-256 during restart recovery so a crash after
+`Archive.ingest` does not create another occurrence. Transient failures use
+bounded exponential retry; policy, path, size, and malformed-sidecar failures
+become visible terminal failures. Failed sources remain available for review.
+
+The safe default is `LEAVE`. `MOVE_TO_PROCESSED` uses a constrained sibling
+directory and refuses collisions. `DELETE_AFTER_VERIFIED_INGEST` requires an
+explicit policy and runs `Archive.verify` before unlinking. The watcher never
+rewrites, unpacks, cleans, chmods, or mutates inbox bytes. Optional
+`*.rab.json` sidecars accept only bounded scalar metadata fields; malformed or
+unknown fields warn/fail safely without losing the payload.
+
+After preservation, identity integration remains owned by `IngestManager`;
+the watcher may request catalogue rebuild and named malware scanning, but
+downstream failures produce warnings rather than removing the master. Malware
+scanners receive the existing disposable analysis copy. Private source paths,
+purchase notes, account data, receipts, and license information are not
+published by watcher API/RetroWeb views; rights/publication remain separate.
+
+`rab-inbox-watch.service` is disabled by default in Ansible, runs as the
+non-root `rab` account, has no network requirement, uses `ProtectSystem`,
+`ProtectHome`, `ReadWritePaths` limited to the RAB root, restart policy, and
+configurable interval/stability/minimum-age settings. No upload endpoint or
+message broker is introduced.
+
 ## Optical Media Ingest (M6.5)
 
 Optical preservation distinguishes a physical medium, inspection/layout

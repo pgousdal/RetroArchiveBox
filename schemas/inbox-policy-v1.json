@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/inbox-policy-v1.json",
+  "title": "RAB Watched Inbox Policy v1",
+  "type": "object",
+  "required": ["inbox_id", "path"],
+  "properties": {
+    "inbox_id": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"},
+    "path": {"type": "string"},
+    "enabled": {"type": "boolean"},
+    "provenance": {"type": "string"},
+    "rights": {"enum": ["REDISTRIBUTABLE", "PRIVATE_LICENSED", "RESTRICTED", "UNKNOWN"]},
+    "recursive": {"type": "boolean"},
+    "stability_seconds": {"type": "number", "minimum": 0},
+    "min_age_seconds": {"type": "number", "minimum": 0},
+    "max_file_size": {"type": ["integer", "null"], "minimum": 0},
+    "include_patterns": {"type": "array", "items": {"type": "string"}},
+    "exclude_patterns": {"type": "array", "items": {"type": "string"}},
+    "temporary_suffixes": {"type": "array", "items": {"type": "string"}},
+    "post_success": {"enum": ["LEAVE", "MOVE_TO_PROCESSED", "DELETE_AFTER_VERIFIED_INGEST"]},
+    "post_failure": {"enum": ["LEAVE", "REVIEW_REQUIRED"]},
+    "malware_policy": {"type": "string"},
+    "identity_enabled": {"type": "boolean"},
+    "catalogue_enabled": {"type": "boolean"},
+    "max_retries": {"type": "integer", "minimum": 1},
+    "retry_delay_seconds": {"type": "number", "minimum": 0},
+    "staging_limit_bytes": {"type": ["integer", "null"], "minimum": 0},
+    "free_space_reserve_bytes": {"type": "integer", "minimum": 0}
+  },
+  "additionalProperties": false
+}

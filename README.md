@@ -107,6 +107,23 @@ reads, so repeat verification compares decoded and track evidence rather than
 requiring equal raw hashes. Greaseweazle V4.1 and real floppy qualification
 are not performed until hardware is available.
 
+## M6.8 Watched inbox ingest
+
+The opt-in `rab-inbox-watch.service` continuously reconciles configured inboxes
+through the existing local ingest and `Archive.ingest` path. Default inboxes
+are `downloads`, `purchased`, `personal`, and `unknown`; provenance is a policy
+hint and never grants rights. Files must be regular, remain stable across two
+observations, satisfy minimum-age/size policy, and avoid configured temporary
+suffixes. Unknown files are valid preservation objects.
+
+Source files are left untouched by default. Explicit policies may move a file
+to a sibling processed directory or delete it only after verified ingest.
+Duplicate bytes create one CAS master and another provenance occurrence.
+Watcher state is restart-safe and disposable; local-ingest jobs, object
+manifests, occurrences, and preservation events remain the authoritative
+records. The API and RetroWeb expose only safe logical inbox/job information,
+not private filesystem paths or purchase metadata.
+
 ## Retro-Compatible Web v1
 
 RAB provides an optional server-rendered read-only web interface through
