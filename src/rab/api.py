@@ -124,11 +124,19 @@ class CatalogueAPI:
         if m: return 200, qualification.public_report(qualification.report(m.group(1)))
         analysis = AnalysisManager(self.catalogue.archive)
         if route == "/api/v1/analysis/status": return 200, analysis.status()
+        if route == "/api/v1/analysis/capabilities": return 200, analysis.capabilities()
         if route == "/api/v1/analysis/jobs": return 200, [analysis.public_job(x) for x in analysis.jobs()]
         m = re.fullmatch(r"/api/v1/analysis/jobs/([0-9a-f]+)", route)
         if m: return 200, analysis.public_job(analysis.show(m.group(1)))
         m = re.fullmatch(r"/api/v1/analysis/objects/(.+)/relationships", route)
         if m: return 200, analysis.relationships(unquote(m.group(1)))
+        m = re.fullmatch(r"/api/v1/objects/(sha256:)?([0-9a-f]{64})/(analysis|contained|tree|observations)", route)
+        if m:
+            object_id = "sha256:" + m.group(2); view = m.group(3)
+            if view == "analysis": return 200, [analysis.public_job(x) for x in analysis.jobs() if x.get("root_object") == object_id]
+            if view == "contained": return 200, analysis.contained(object_id)
+            if view == "tree": return 200, analysis.tree(object_id)
+            return 200, [{key: value for key, value in x.items() if key not in {"evidence"}} for x in analysis.observations(object_id)]
         if route.startswith("/api/v1/products/"):
             product_path = unquote(route.removeprefix("/api/v1/products/"))
             matches = [x for x in ProductBuilder(self.catalogue.archive, identity=identity).list() if x.get("path_id") == product_path]

@@ -11,7 +11,9 @@
     "root_object": {"type": "string"},
     "policy": {"enum": ["metadata-only", "identify", "preserve", "archival"]},
     "limits": {"type": "object"},
-    "state": {"enum": ["ANALYSING", "COMPLETED", "COMPLETED_WITH_WARNINGS", "FAILED"]},
+    "state": {"enum": ["PLANNED", "RUNNING", "COMPLETE", "COMPLETE_WITH_WARNINGS", "PARTIAL", "UNSUPPORTED", "TOOL_MISSING", "TIMEOUT", "LIMIT_EXCEEDED", "MALFORMED", "FAILED", "ANALYSING", "COMPLETED", "COMPLETED_WITH_WARNINGS"]},
+    "analysis_key": {"type": "string"},
+    "format_observation_ids": {"type": "array"},
     "discovered": {"type": "array"},
     "relationships": {"type": "array"},
     "limits_reached": {"type": "array"}

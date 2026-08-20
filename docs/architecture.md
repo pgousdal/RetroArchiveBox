@@ -442,16 +442,19 @@ bootstrap or mirroring. Implemented does not mean physically qualified.
 `AnalysisManager` is a bounded analysis plane above immutable RAB objects:
 
 ```text
-verified preservation master -> disposable read-only copy/workspace
-       -> analyzer probe/list -> metadata discovery
-       -> optional bounded materialization -> Archive.ingest by policy
-       -> CONTAINS evidence, identity, malware/authority/catalogue hooks
+PHYSICAL MEDIUM -> CAPTURE ATTEMPT -> PRESERVATION MASTER
+       -> disposable read-only analysis copy
+       -> STRUCTURAL REPRESENTATION / PARTITION / FILESYSTEM / CONTAINER
+       -> exact contained byte object through Archive.ingest
+       -> IDENTITY / AUTHORITY / MALWARE / RIGHTS
+       -> RESOURCE BROKER / CONSUMERS
 ```
 
-Analyzers implement a small plugin contract for probe, member listing, and
-materialization. The initial registry includes ZIP, TAR, gzip, bzip2, xz,
-mountless ISO9660 and FAT12/16 directory inspection, Amiga/C64 image
-inspection boundaries, and truthful LHA/LZH unsupported materialization. No
+Analyzers declare ID, implementation, version, formats, representations,
+confidence, determinism, availability and tool requirements. The registry
+includes mountless MBR/GPT partition extraction, superfloppy handling,
+recursive FAT12/16/32 and ISO9660 inventory/extraction, ZIP/TAR/gzip/bzip2/xz,
+retro disk recognition, and truthful LHA/LZH/7z `TOOL_MISSING` boundaries. No
 analyzer receives arbitrary shell arguments, executes contained programs, or
 uses `shell=True`. No source image is mounted or changed.
 
@@ -460,25 +463,35 @@ Analysis policies are `metadata-only`, `identify`, `preserve`, and
 expanded bytes, single object size, member count, compression ratio, nested
 objects, and elapsed time limits. Paths are normalized/rejected for absolute,
 traversal, drive-letter, NUL, symlink, hardlink, device, FIFO, and socket
-behavior. Limit stops are `COMPLETED_WITH_WARNINGS` with
-`ANALYSIS_LIMIT_REACHED`, not corruption claims.
+behavior. Results distinguish `COMPLETE`, warnings, `UNSUPPORTED`,
+`TOOL_MISSING`, `TIMEOUT`, `LIMIT_EXCEEDED`, `MALFORMED`, and `FAILED`.
 
 Materialized children are independently hashed with the existing five-hash
 identity path. If bytes already exist, `Archive.ingest` converges the master
 and adds an occurrence; the analyzer then records a typed `CONTAINS`
-relationship from parent to child with analyzer/version/depth/logical-path
-evidence. The parent remains preserved and byte-distinct. Metadata-only
+relationship from parent to child with analyzer/version/depth/logical-path and
+raw-name evidence. Rights inherit conservatively and never become broader.
+The parent remains preserved and byte-distinct. Metadata-only
 members remain discovery evidence in the immutable analysis job and do not
 become payload objects. Recursive children retain the complete relationship
 chain rather than flattened provenance.
 
-Analysis jobs under `analysis/jobs` contain no payload bytes and are rerunnable
-derived operational evidence. API routes `/api/v1/analysis/status`, `/jobs`,
-and `/objects/<id>/relationships`, plus RetroWeb `/retro/analysis`, expose
-bounded read-only summaries with no temporary paths. Contained objects are
+Analysis keys include root, policy, limits, recursion and analyzer versions.
+Identical reruns are idempotent; forced or version-changed runs remain evidence.
+Append-only observations retain conflicting detections. Directories have
+structural identity scoped to the analyzed parent/job; exact files have CAS
+identity. CLI/API/RetroWeb expose capabilities, jobs, trees, observations and
+contained objects without temporary paths. Products cover contained,
+filesystem and archive manifests, formats, coverage, unsupported results,
+duplicates and source provenance. Contained objects are
 eligible for later malware and authority processing; `NOT_SCANNED` and
 `NOT_CHECKED` remain honest states. The containment product foundation emits
 metadata-only relationship maps through the existing `ProductBuilder`.
+
+The hierarchy is a graph: a CD can branch into data and audio tracks, a USB
+image can contain multiple filesystems, and nested archives can contain disk
+images or unknown data. Mixed-mode/subchannel analysis, Amiga OFS/FFS and
+Commodore DOS extraction, and LHA/7z extraction are not claimed here.
 
 ## Historical & Native Malware Analysis (M7.1)
 

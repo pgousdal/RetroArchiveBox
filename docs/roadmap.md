@@ -381,22 +381,19 @@ repeat metadata, partial/error captures, non-mounting inventory, and
 operator-local `rab removable` status/capture surfaces. Real disposable USB or
 SD hardware qualification remains **NOT PERFORMED**.
 
-## M6.11 Contained Object Discovery & Recursive Analysis Foundation (2026-08-19)
+## M6.11 Captured Image Analysis & Contained Object Ingest (2026-08-20)
 
-M6.11 adds bounded disposable-copy analysis, generic analyzer registration,
-metadata-only/identify/preserve/archival policies, ZIP/TAR/compression,
-mountless ISO9660/FAT inspection, traversal/symlink/archive-bomb protections,
-recursive analysis jobs, universal hashes, typed containment relationships,
-dedup convergence, malware coverage evidence, containment product output,
-CLI/API/RetroWeb surfaces, and generated attack fixtures. Containers remain
-preservation masters and analysis failure never invalidates them.
+The earlier foundation is retained and hardened with explicit lifecycle and
+capability states, deterministic analyzer/configuration job keys, append-only
+format observations, mountless MBR/GPT extraction, recursive FAT12/16/32 and
+ISO9660 exact extraction, physical/capture analysis, conservative rights
+inheritance, CAS convergence, object-tree APIs, detail views, and deterministic
+analysis inventory/coverage/duplicate/provenance products.
 
-LHA/LZH materialization is intentionally not claimed without a qualified
-toolchain. Real CD, USB, floppy-derived filesystem, Debian 13 dependency, and
-production-soak qualification are **NOT PERFORMED**. Future work includes
-native filesystem analyzers, contained-object malware analysis, real local
-seed recursive analysis, deeper optical formats, online bootstrap activation,
-and public derived products. Museum-grade status remains **NO**.
+Qualification uses synthetic fixtures only. LHA/LZH and 7z extraction, Amiga
+OFS/FFS and Commodore DOS traversal, mixed-mode optical analysis, real hardware,
+real collections, Debian 13 dependency qualification and production soak are
+**NOT PERFORMED**. Museum-grade status remains **NO**.
 
 ## M7.1 Historical & Native Malware Analysis Framework (2026-08-19)
 

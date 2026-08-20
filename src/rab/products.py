@@ -10,6 +10,9 @@ from .errors import PolicyError, RabError
 from .identity import IdentityCatalogue
 
 
+ANALYSIS_PRODUCTS = {"contained-manifest", "filesystem-manifest", "archive-manifest", "format-inventory", "analysis-coverage", "unsupported-formats", "duplicate-content", "source-provenance"}
+
+
 class ProductBuilder:
     VERSION = 1
 
@@ -23,9 +26,35 @@ class ProductBuilder:
 
     def build(self, product: str, *, platform: str | None = None, format_id: str | None = None,
               authority: str | None = None, hash_algorithm: str | None = None) -> dict:
-        if product not in {"identity", "fixity", "authority-crosswalk", "containment", "physical-media", "capture-status", "set-completeness", "provenance-inventory"}:
+        if product not in {"identity", "fixity", "authority-crosswalk", "containment", "physical-media", "capture-status", "set-completeness", "provenance-inventory"} | ANALYSIS_PRODUCTS:
             raise RabError("unknown derived product")
-        if product in {"physical-media", "capture-status", "set-completeness", "provenance-inventory"}:
+        if product in ANALYSIS_PRODUCTS:
+            from .analysis import AnalysisManager
+            manager = AnalysisManager(self.archive); jobs = manager.jobs(); records = []
+            if product in {"contained-manifest", "filesystem-manifest", "archive-manifest", "source-provenance"}:
+                for job in jobs:
+                    for item in job.get("discovered", []):
+                        analyzer_id = item.get("analyzer", {}).get("analyzer_id")
+                        row = {"root_object": job.get("root_object"), "analysis_key": job.get("analysis_key"), "parent_object": item.get("parent_object"), "logical_path": item.get("logical_path"), "raw_name": item.get("raw_name"), "representation": item.get("representation"), "format": item.get("format"), "size": item.get("size"), "object_id": item.get("object_id"), "hashes": item.get("hashes"), "analyzer_id": analyzer_id, "analyzer_version": item.get("analyzer", {}).get("version"), "status": item.get("status")}
+                        if product == "filesystem-manifest" and analyzer_id not in {"fat", "iso9660"}: continue
+                        if product == "archive-manifest" and analyzer_id not in {"zip", "tar", "gzip", "bzip2", "xz", "lha"}: continue
+                        if product == "source-provenance": row = {key: row.get(key) for key in ("root_object", "parent_object", "logical_path", "object_id", "analyzer_id", "analyzer_version")}
+                        records.append(row)
+            elif product == "format-inventory":
+                records = [{"object_id": x.get("object_id"), "detected_format": x.get("detected_format"), "confidence": x.get("confidence"), "analyzer_id": x.get("analyzer", {}).get("analyzer_id"), "analyzer_version": x.get("analyzer", {}).get("version")} for path in sorted(manager.observations_root.glob("*.json")) for x in [json.loads(path.read_text(encoding="utf-8"))]] if manager.observations_root.is_dir() else []
+            elif product == "analysis-coverage":
+                states = {}
+                for job in jobs: states.setdefault(job.get("root_object"), []).append(job.get("state"))
+                records = [{"object_id": "sha256:" + path.parent.name, "analysis_states": sorted(states.get("sha256:" + path.parent.name, [])), "analyzed": "sha256:" + path.parent.name in states} for path in sorted(self.archive.objects.glob("sha256/*/*/*/manifest.json"))]
+            elif product == "unsupported-formats":
+                records = [{"root_object": x.get("root_object"), "state": x.get("state"), "analysis_key": x.get("analysis_key")} for x in jobs if x.get("state") in {"UNSUPPORTED", "TOOL_MISSING", "MALFORMED", "TIMEOUT", "LIMIT_EXCEEDED"}]
+            else:
+                grouped = {}
+                for job in jobs:
+                    for item in job.get("materialized", []): grouped.setdefault(item.get("hashes", {}).get("sha256"), []).append({"root_object": job.get("root_object"), "logical_path": item.get("logical_path")})
+                records = [{"sha256": sha, "occurrences": sorted(items, key=lambda x: (x.get("root_object", ""), x.get("logical_path", "")))} for sha, items in grouped.items() if sha and len(items) > 1]
+            rows = []
+        elif product in {"physical-media", "capture-status", "set-completeness", "provenance-inventory"}:
             from .physical_registry import PhysicalMediaRegistry
             registry = PhysicalMediaRegistry(self.archive); physical = registry.list(); records = []
             for item in physical:
@@ -37,7 +66,7 @@ class ProductBuilder:
             rows = []
         else:
             rows = self.identity.search(platform=platform, format_id=format_id, authority=authority, hash_algorithm=hash_algorithm)
-        if product in {"physical-media", "capture-status", "set-completeness", "provenance-inventory"}:
+        if product in ANALYSIS_PRODUCTS | {"physical-media", "capture-status", "set-completeness", "provenance-inventory"}:
             pass
         elif product == "identity":
             records = [self._identity_row(x) | {"relationships": self.identity.relationships("sha256:" + x["sha256"])} for x in rows]

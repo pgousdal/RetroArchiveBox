@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/analysis-observation-v1.json",
+  "title": "RAB Analysis Observation v1",
+  "type": "object",
+  "required": ["schema", "observation_id", "job_id", "object_id", "recorded_at", "analyzer", "detected_format", "confidence", "evidence"],
+  "properties": {
+    "schema": {"const": "rab-analysis-observation-v1"},
+    "observation_id": {"type": "string"},
+    "job_id": {"type": "string"},
+    "object_id": {"type": "string"},
+    "detected_format": {"type": "string"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "analyzer": {"type": "object"},
+    "evidence": {"type": "object"}
+  },
+  "additionalProperties": true
+}

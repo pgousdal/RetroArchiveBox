@@ -188,14 +188,19 @@ bounded temporary bytes for hashing, while `preserve` and `archival` promote
 materialized regular files through the normal `Archive.ingest` boundary.
 Containers never replace their parents. Preserved children receive universal
 hashes and `CONTAINS` relationship evidence with logical paths and analyzer
-identity. ZIP, TAR, gzip, bzip2, xz, ISO9660, FAT12/16 inspection, Amiga/C64
-image boundaries, and LHA limitation reporting are provided without executing
-contained programs or mounting source media.
+identity. ZIP, TAR, gzip, bzip2, xz, mountless MBR/GPT, ISO9660, and recursive
+FAT12/16/32 inventory/extraction are provided. Retro disk formats have truthful
+recognition boundaries without claiming filesystem decoding; LHA/LZH and 7z
+report missing qualified tooling. Nothing executes contained programs or mounts
+source media.
 
 Recursion, files, expanded bytes, member count, single-object size,
 compression ratio, and elapsed time are bounded. Traversal, symlink, special
 file, malformed archive, and archive-bomb conditions stop safely and remain
 analysis evidence. Analysis may fail without invalidating preservation.
+Deterministic analysis keys make unchanged reruns idempotent; analyzer-version
+changes and explicit retries remain auditable. CLI commands cover capabilities,
+plan, run, show, tree, observations, contained objects, and retry.
 
 ## M7.1 Historical and native malware evidence
 

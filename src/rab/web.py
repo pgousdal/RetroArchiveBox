@@ -90,6 +90,7 @@ class WebApplication:
             if route == "/physical-media": return self.physical_media(retro)
             if route == "/qualification": return self.qualification(retro)
             if route == "/analysis": return self.analysis(retro)
+            if route.startswith("/analysis/"): return self.analysis_detail(unquote(route.removeprefix("/analysis/")), retro)
             if route == "/malware": return self.malware(retro)
             if route == "/removable": return self.removable(retro)
             if route == "/physical": return self.physical(retro)
@@ -223,8 +224,14 @@ class WebApplication:
 
     def analysis(self, retro):
         value = AnalysisManager(self.catalogue.archive); status = value.status(); jobs = value.jobs(); content = '<p>Read-only contained-object analysis. Containers remain preservation masters; analysis is bounded and policy-controlled.</p><p>Jobs: ' + _e(status.get("jobs")) + '; completed: ' + _e(status.get("completed")) + '; warnings/limits: ' + _e(status.get("warnings")) + '</p><table><tr><th>Job</th><th>Root</th><th>Policy</th><th>State</th><th>Discovered</th><th>Materialized</th><th>Limits</th></tr>'
-        content += ''.join('<tr><td>' + _e(x.get("job_id")) + '</td><td><code>' + _e(x.get("root_object")) + '</code></td><td>' + _e(x.get("policy")) + '</td><td>' + _e(x.get("state")) + '</td><td>' + _e(len(x.get("discovered", []))) + '</td><td>' + _e(x.get("materialized_count", 0)) + '</td><td>' + _e(x.get("limits_reached", [])) + '</td></tr>' for x in jobs) + '</table>'
+        prefix = "/retro" if retro else "/web"; content += ''.join('<tr><td><a href="' + prefix + '/analysis/' + _e(x.get("job_id")) + '">' + _e(x.get("job_id")) + '</a></td><td><code>' + _e(x.get("root_object")) + '</code></td><td>' + _e(x.get("policy")) + '</td><td>' + _e(x.get("state")) + '</td><td>' + _e(len(x.get("discovered", []))) + '</td><td>' + _e(x.get("materialized_count", 0)) + '</td><td>' + _e(x.get("limits_reached", [])) + '</td></tr>' for x in jobs) + '</table><h3>Capabilities</h3><ul>' + ''.join('<li>' + _e(x.get("analyzer_id")) + ' ' + _e(x.get("version")) + ': ' + _e(x.get("capability")) + ' / ' + _e("available" if x.get("available") else "tool missing") + '</li>' for x in value.capabilities()) + '</ul>'
         return 200, "text/html; charset=utf-8", self.page("Contained Analysis", content, retro), None
+
+    def analysis_detail(self, job_id, retro):
+        manager = AnalysisManager(self.catalogue.archive); job = manager.public_job(manager.show(job_id)); content = '<p>State: <strong>' + _e(job.get("state")) + '</strong>; root: <code>' + _e(job.get("root_object")) + '</code></p><h3>Contained-object tree</h3><ul>'
+        content += ''.join('<li>' + _e(x.get("logical_path")) + ' — ' + _e(x.get("representation")) + ' — <code>' + _e(x.get("object_id") or x.get("hashes", {}).get("sha256")) + '</code> — ' + _e(x.get("status")) + '</li>' for x in job.get("discovered", [])) or '<li>No contained objects.</li>'
+        content += '</ul><h3>Format observations</h3><ul>' + ''.join('<li>' + _e(x.get("analyzer_id")) + ' ' + _e(x.get("version")) + '</li>' for x in job.get("analyzers", [])) + '</ul><p>Warnings: ' + _e(job.get("warnings_count")) + '; errors: ' + _e(job.get("error_count")) + '; limits: ' + _e(job.get("limits_reached", [])) + '</p>'
+        return 200, "text/html; charset=utf-8", self.page("Analysis " + job_id, content, retro), None
 
     def malware(self, retro):
         store = MalwareStore(self.catalogue.archive, read_only=True, extended=True); observations = [store.public_observation(x) for x in store.observations()]; content = '<p>Malware results are timestamped observations, not preservation truth. NOT_DETECTED is not CLEAN.</p><table><tr><th>Object</th><th>Scanner</th><th>Class</th><th>Definitions</th><th>Coverage</th><th>Result</th><th>Detections</th></tr>'

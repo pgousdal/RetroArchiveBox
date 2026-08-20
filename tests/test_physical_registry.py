@@ -1,6 +1,9 @@
 import json
+import io
+import zipfile
 
 from rab.api import CatalogueAPI
+from rab.analysis import AnalysisManager
 from rab.catalogue import Catalogue
 from rab.cli import parser, run
 from rab.local_ingest import ProvenanceClass
@@ -103,3 +106,13 @@ def test_physical_cli_registration_and_intake_defaults(tmp_path):
     shown = run(cli.parse_args(["--root", str(root), "physical", "show", registered["physical_medium_id"]]))
     assert started["state"] == "ACTIVE" and shown["provenance"] == "vendor_media" and shown["metadata"]["platform"] == "amiga"
     assert run(cli.parse_args(["--root", str(root), "physical", "intake", "end"]))["state"] == "COMPLETED"
+
+
+def test_physical_capture_analysis_uses_preserved_representation_not_device(tmp_path):
+    payload = io.BytesIO()
+    with zipfile.ZipFile(payload, "w") as container: container.writestr("collection/readme.txt", b"fixture")
+    archive = Archive(tmp_path / "archive"); registry = PhysicalMediaRegistry(archive); medium = registry.register("removable_flash", provenance="vendor_media", rights="RESTRICTED")
+    adapter = _FixtureDevice(payload.getvalue()); manager = RemovableManager(archive, media=MediaManager(archive, adapter=adapter)); capture = manager.capture("/dev/fixture", physical_medium_id=medium["physical_medium_id"], rights=Rights.RESTRICTED)
+    adapter.data = b"device changed after capture"; jobs = AnalysisManager(archive).analyze_physical(medium["physical_medium_id"], policy="preserve")
+    assert jobs[0]["root_object"] == capture["object_id"] and any(x.get("logical_path") == "collection/readme.txt" for x in jobs[0]["discovered"])
+    assert adapter.calls == 1 and archive.verify(capture["object_id"], record_event=False)["outcome"] == "PASS"

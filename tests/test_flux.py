@@ -3,6 +3,7 @@ import json
 import pytest
 
 from rab.api import CatalogueAPI
+from rab.analysis import AnalysisManager
 from rab.catalogue import Catalogue
 from rab.errors import PolicyError, RabError
 from rab.flux import FluxDecoder, FluxManager, FloppyProfile, GreaseweazleAdapter
@@ -106,3 +107,4 @@ def test_flux_decoder_keeps_raw_and_creates_distinct_derivative(tmp_path):
     assert archive.object_dir(archive.resolve(capture["object_id"])) .joinpath("master").read_bytes() == b"SCP-FIXTURE-RAW-FLUX"
     assert archive.show(derived["object_id"])["preservation_state"] == "DERIVATIVE"
     assert any(x["relationship"] == "DERIVED_FROM" for x in __import__("rab.identity", fromlist=["IdentityCatalogue"]).IdentityCatalogue(archive).relationships(derived["object_id"]))
+    assert AnalysisManager(archive).analyze(derived["object_id"])["state"] in {"COMPLETE_WITH_WARNINGS", "UNSUPPORTED"}

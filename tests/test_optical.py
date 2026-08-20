@@ -3,6 +3,7 @@ import json
 import pytest
 
 from rab.api import CatalogueAPI
+from rab.analysis import AnalysisManager
 from rab.catalogue import Catalogue
 from rab.errors import PolicyError, RabError
 from rab.media import OpticalAdapter, OpticalManager, OpticalOutcome
@@ -13,7 +14,7 @@ from rab.web import WebApplication
 
 
 class _OpticalRunner:
-    def __init__(self, *, mixed=False, fail=False, partial=False, different=False): self.mixed = mixed; self.fail = fail; self.partial = partial; self.different = different
+    def __init__(self, *, mixed=False, fail=False, partial=False, different=False, payload=None): self.mixed = mixed; self.fail = fail; self.partial = partial; self.different = different; self.payload = payload
     def __call__(self, command, **kwargs):
         class Result:
             returncode = 0; stderr = ""
@@ -22,7 +23,7 @@ class _OpticalRunner:
         if command[0] == "lsblk": result.stdout = json.dumps({"blockdevices": [{"path": "/dev/sr0", "type": "rom", "size": 4096, "model": "Fixture CD"}]})
         elif command[0] == "blkid": result.stdout = "" if self.mixed else "TYPE=iso9660\nLABEL=RABTEST\nBLOCK_SIZE=2048\n"
         elif command[0] == "dd":
-            output = next(x.removeprefix("of=") for x in command if x.startswith("of=")); open(output, "wb").write(b"O" * 4096)
+            output = next(x.removeprefix("of=") for x in command if x.startswith("of=")); open(output, "wb").write(self.payload if self.payload is not None else b"O" * 4096)
             if self.different: open(output, "wb").write(b"P" * 4096)
             if self.fail: result.returncode = 1
         return result
@@ -72,3 +73,9 @@ def test_optical_track_probe_is_explicit_and_non_mutating(tmp_path):
     adapter = OpticalAdapter(runner=_OpticalRunner(), which=lambda _: None, toc_reader=toc)
     inspection = adapter.inspect("/dev/sr0"); plan = adapter.plan(inspection)
     assert len(inspection.tracks) == 2 and inspection.mixed_mode and plan["state"] == OpticalOutcome.TOOL_MISSING.value
+
+
+def test_optical_iso_capture_flows_into_contained_analysis(tmp_path):
+    iso = bytearray(20 * 2048); pvd = 16 * 2048; iso[pvd + 1:pvd + 6] = b"CD001"; root = pvd + 156; iso[root] = 34; iso[root + 2:root + 6] = (18).to_bytes(4, "little"); iso[root + 10:root + 18] = (2048).to_bytes(8, "little"); iso[root + 25] = 2; iso[root + 32] = 1; name = b"HELLO.TXT;1"; entry = 18 * 2048; length = 33 + len(name) + len(name) % 2; iso[entry] = length; iso[entry + 2:entry + 6] = (19).to_bytes(4, "little"); iso[entry + 10:entry + 18] = (7).to_bytes(8, "little"); iso[entry + 32] = len(name); iso[entry + 33:entry + 33 + len(name)] = name; iso[19 * 2048:19 * 2048 + 7] = b"fixture"
+    archive = Archive(tmp_path / "archive"); manager = OpticalManager(archive, adapter=OpticalAdapter(runner=_OpticalRunner(payload=bytes(iso)), which=lambda _: None)); capture = manager.capture("/dev/sr0"); job = AnalysisManager(archive).analyze(capture["object_id"], policy="preserve")
+    assert job["state"] == "COMPLETE" and any(x.get("analyzer_id") == "iso9660" for x in job["analyzers"]), job["analyzers"]

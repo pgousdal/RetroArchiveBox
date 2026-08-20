@@ -15,6 +15,14 @@ def identify_format(data: bytes, *, name: str = "", media_type: str = "") -> For
     lower = (name or "").lower()
     if data.startswith(b"PK\x03\x04"):
         return FormatIdentification("zip", "magic", 1.0)
+    if data.startswith(b"\x1f\x8b"):
+        return FormatIdentification("gzip", "magic", 1.0)
+    if data.startswith(b"BZh"):
+        return FormatIdentification("bzip2", "magic", 1.0)
+    if data.startswith(b"\xfd7zXZ\x00"):
+        return FormatIdentification("xz", "magic", 1.0)
+    if data.startswith(b"7z\xbc\xaf'\x1c"):
+        return FormatIdentification("7z", "magic", 1.0)
     if lower.endswith((".lha", ".lzh")):
         return FormatIdentification("lha", "extension", 0.8)
     if len(data) >= 2 and data[2:5] in {b"-lh", b"-lz", b"-pm"}:
@@ -49,6 +57,12 @@ def identify_format(data: bytes, *, name: str = "", media_type: str = "") -> For
         return FormatIdentification("bin", "extension", 0.45)
     if len(data) in {174848, 175531, 196608, 197376}:
         return FormatIdentification("d64", "structural", 0.85)
+    if len(data) in {349696, 351062}:
+        return FormatIdentification("d71", "structural", 0.85)
+    if len(data) in {819200, 822400}:
+        return FormatIdentification("d81", "structural", 0.85)
+    if len(data) in {368640, 737280, 1474560}:
+        return FormatIdentification("raw-disk-image", "size", 0.5)
     if len(data) > 0 and all(byte in {9, 10, 13} or 32 <= byte < 127 for byte in data[: min(len(data), 4096)]):
         return FormatIdentification("text", "content", 0.65)
     return FormatIdentification("binary", "fallback", 0.2)
