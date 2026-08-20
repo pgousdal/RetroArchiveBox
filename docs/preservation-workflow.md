@@ -12,7 +12,8 @@ expert commands. Normal mode is:
 
 `preserve next` discovers, inspects, registers/selects the physical medium,
 plans, requests confirmation, captures read-only, verifies and ingests into CAS,
-then analyzes only the immutable master. It records malware coverage, rebuilds
+then analyzes only the immutable master. It submits eligible immutable objects
+to the configured AVBox provider, records returned malware coverage, rebuilds
 identity, produces scoped metadata products, writes a final report, and reports
 whether operator removal is appropriate. `preserve eject` intentionally returns
 `OPERATOR_EJECT_REQUIRED`; M6.12 never unmounts unrelated filesystems or
@@ -28,7 +29,7 @@ tools, or limits requiring judgment. Cancellation retains completed masters.
 
 - `quick`: one capture, metadata-only analysis, minimal products.
 - `standard`: one verified capture, bounded contained-byte preservation,
-  configured free malware scanners, and normal reports.
+  a `current-standard` AVBox request, and normal reports.
 - `conservative`: two captures, required equality, deeper bounded analysis.
 
 `COMPLETE` means the requested profile completed. `COMPLETE_WITH_WARNINGS`
@@ -37,6 +38,11 @@ means preservation succeeded but optional downstream coverage was incomplete.
 requested representation resulted. `NEEDS_OPERATOR` means automation cannot
 make a preservation-safe decision. Malware detection never deletes or repairs
 content. Ownership and provenance never grant redistribution.
+
+If AVBox is disabled or unreachable, requests remain `PENDING_PROVIDER` and the
+workflow becomes `COMPLETE_WITH_WARNINGS`; preserved media need not be
+reinserted. Later run `rab malware pending` and `rab malware submit-pending`.
+Provider detection still leaves the preservation workflow successful.
 
 ## First real ingest checklist
 

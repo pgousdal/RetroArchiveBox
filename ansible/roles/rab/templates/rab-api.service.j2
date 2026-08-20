@@ -6,6 +6,12 @@ After=local-fs.target
 Type=simple
 User={{ rab_user }}
 Group={{ rab_group }}
+Environment=RAB_AVBOX_ENABLED={{ rab_avbox_enabled | ternary('true', 'false') }}
+Environment="RAB_AVBOX_URL={{ rab_avbox_url }}"
+Environment="RAB_AVBOX_TOKEN_FILE={{ rab_avbox_token_file }}"
+Environment="RAB_AVBOX_TIMEOUT={{ rab_avbox_timeout }}"
+{% if rab_avbox_ca_bundle %}Environment="RAB_AVBOX_CA_BUNDLE={{ rab_avbox_ca_bundle }}"
+{% endif %}
 ExecStart=/opt/rab/venv/bin/rab --root {{ rab_root }} --sources {{ rab_sources_dir }} api --host {{ rab_api_host }} --port {{ rab_api_port }}
 NoNewPrivileges=true
 UMask=0077

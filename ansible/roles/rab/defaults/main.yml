@@ -20,9 +20,11 @@ rab_web_enabled: false
 rab_retro_http_bind: 127.0.0.1
 rab_retro_http_port: 8081
 rab_retro_http_enabled: false
-rab_clamav_enabled: false
-rab_clamav_freshclam_enabled: false
-rab_yara_enabled: false
+rab_avbox_enabled: false
+rab_avbox_url: ""
+rab_avbox_token_file: /etc/rab/avbox.token
+rab_avbox_ca_bundle: ""
+rab_avbox_timeout: 15
 rab_aria2_enabled: true
 rab_inbox_root: "{{ rab_root }}/inbox"
 rab_media_root: "{{ rab_root }}/media"

@@ -19,6 +19,7 @@ from .additional_authorities import AdditionalAuthority
 from .broker import ConsumerContext, ConsumerRegistry, DeliveryMode, ResourceBroker, ResourceKind
 from .web import run_web_server
 from .malware import MalwareStore
+from .malware_provider import MalwareProviderManager
 from .transports import AcquisitionPurpose, TransportResolver
 from .bootstrap import BootstrapOrchestrator, BootstrapStore
 from .identity import IdentityCatalogue
@@ -207,13 +208,20 @@ def parser() -> argparse.ArgumentParser:
     malware = sub.add_parser("malware", help="inspect and operate malware analysis")
     malware_sub = malware.add_subparsers(dest="malware_command", required=True)
     malware_status = malware_sub.add_parser("status"); malware_status.add_argument("identifier", nargs="?")
-    malware_scanners = malware_sub.add_parser("scanners")
-    malware_profiles = malware_sub.add_parser("profiles")
+    malware_sub.add_parser("providers"); malware_provider = malware_sub.add_parser("provider"); malware_provider.add_argument("provider_id", default="avbox", nargs="?")
+    malware_capabilities = malware_sub.add_parser("capabilities"); malware_capabilities.add_argument("--provider", default="avbox")
+    malware_profiles = malware_sub.add_parser("profiles"); malware_profiles.add_argument("--provider", default="avbox")
+    malware_submit = malware_sub.add_parser("submit"); malware_submit.add_argument("identifier"); malware_submit.add_argument("--provider", default="avbox"); malware_submit.add_argument("--profile", default="current-standard"); malware_submit.add_argument("--profile-version", default="current"); malware_submit.add_argument("--representation", default="object"); malware_submit.add_argument("--format"); malware_submit.add_argument("--platform"); malware_submit.add_argument("--force", action="store_true")
+    malware_request = malware_sub.add_parser("request-status"); malware_request.add_argument("request_id"); malware_request.add_argument("--poll", action="store_true")
+    malware_results = malware_sub.add_parser("results"); malware_results.add_argument("identifier")
+    malware_sub.add_parser("pending"); malware_sub.add_parser("submit-pending"); malware_sub.add_parser("doctor")
+    malware_cancel = malware_sub.add_parser("cancel"); malware_cancel.add_argument("request_id")
+    malware_scanners = malware_sub.add_parser("scanners", help="deprecated local scanner inventory")
     malware_scanner = malware_sub.add_parser("scanner"); malware_scanner.add_argument("scanner_id")
-    malware_scan = malware_sub.add_parser("scan"); malware_scan.add_argument("identifier"); malware_scan.add_argument("--scanner", required=True); malware_scan.add_argument("--timeout", type=int, default=300)
+    malware_scan = malware_sub.add_parser("scan", help="deprecated legacy local scanner execution"); malware_scan.add_argument("identifier"); malware_scan.add_argument("--scanner", required=True); malware_scan.add_argument("--timeout", type=int, default=300)
     malware_observations = malware_sub.add_parser("observations"); malware_observations.add_argument("identifier", nargs="?")
     malware_show = malware_sub.add_parser("show"); malware_show.add_argument("observation_id")
-    malware_analyze = malware_sub.add_parser("analyze"); malware_analyze.add_argument("identifier"); malware_analyze.add_argument("--profile", default="current-free"); malware_analyze.add_argument("--scanner", action="append", dest="scanner_ids"); malware_analyze.add_argument("--max-scanners", type=int, default=16); malware_analyze.add_argument("--timeout", type=int, default=300)
+    malware_analyze = malware_sub.add_parser("analyze", help="deprecated legacy local scanner execution"); malware_analyze.add_argument("identifier"); malware_analyze.add_argument("--profile", default="current-free"); malware_analyze.add_argument("--scanner", action="append", dest="scanner_ids"); malware_analyze.add_argument("--max-scanners", type=int, default=16); malware_analyze.add_argument("--timeout", type=int, default=300)
     malware_compare = malware_sub.add_parser("compare"); malware_compare.add_argument("identifier")
     malware_sub.add_parser("analysis-sets")
     malware_sub.add_parser("analysis-jobs")
@@ -245,7 +253,7 @@ def parser() -> argparse.ArgumentParser:
     product = sub.add_parser("product", help="build deterministic derived metadata products")
     product_sub = product.add_subparsers(dest="product_command", required=True)
     product_sub.add_parser("list")
-    product_build = product_sub.add_parser("build"); product_build.add_argument("product", choices=["identity", "fixity", "authority-crosswalk", "containment", "physical-media", "capture-status", "set-completeness", "provenance-inventory", "preservation-run-report", "contained-manifest", "filesystem-manifest", "archive-manifest", "format-inventory", "analysis-coverage", "unsupported-formats", "duplicate-content", "source-provenance"]); product_build.add_argument("--platform"); product_build.add_argument("--format", dest="format_id"); product_build.add_argument("--authority"); product_build.add_argument("--hash-algorithm", dest="hash_algorithm")
+    product_build = product_sub.add_parser("build"); product_build.add_argument("product", choices=["identity", "fixity", "authority-crosswalk", "containment", "physical-media", "capture-status", "set-completeness", "provenance-inventory", "preservation-run-report", "malware-observations", "malware-provider-requests", "contained-manifest", "filesystem-manifest", "archive-manifest", "format-inventory", "analysis-coverage", "unsupported-formats", "duplicate-content", "source-provenance"]); product_build.add_argument("--platform"); product_build.add_argument("--format", dest="format_id"); product_build.add_argument("--authority"); product_build.add_argument("--hash-algorithm", dest="hash_algorithm")
     local = sub.add_parser("local-ingest", help="operate local import inbox and file ingest")
     local_sub = local.add_subparsers(dest="local_command", required=True)
     local_sub.add_parser("status"); local_sub.add_parser("jobs")
@@ -508,11 +516,23 @@ def run(args: argparse.Namespace) -> dict | list:
         return {"outcome": "STOPPED"}
     if args.command == "malware":
         malware_store = MalwareStore(archive, extended=True)
+        provider_manager = MalwareProviderManager(archive, store=malware_store)
+        if args.malware_command == "providers": return provider_manager.providers_status()
+        if args.malware_command == "provider":
+            provider = provider_manager.provider(args.provider_id); return {**provider.public(), "health": provider.health()}
+        if args.malware_command == "capabilities": return provider_manager.capabilities(args.provider)
+        if args.malware_command == "profiles": return provider_manager.profiles(args.provider)
+        if args.malware_command == "submit": return provider_manager.public(provider_manager.submit(args.identifier, provider_id=args.provider, representation=args.representation, profile=args.profile, profile_version=args.profile_version, format_hint=args.format, platform_hint=args.platform, force=args.force))
+        if args.malware_command == "request-status": return provider_manager.public(provider_manager.poll(args.request_id) if args.poll else provider_manager.show(args.request_id))
+        if args.malware_command == "results": return provider_manager.results(args.identifier)
+        if args.malware_command == "pending": return provider_manager.pending()
+        if args.malware_command == "submit-pending": return [provider_manager.public(x) for x in provider_manager.submit_pending()]
+        if args.malware_command == "cancel": return provider_manager.public(provider_manager.cancel(args.request_id))
+        if args.malware_command == "doctor": return provider_manager.doctor()
         if args.malware_command == "status":
             return malware_store.status(args.identifier) if args.identifier else malware_store.stats()
         if args.malware_command == "scanners":
             return malware_store.scanners_status()
-        if args.malware_command == "profiles": return malware_store.scanner_profiles()
         if args.malware_command == "scanner":
             return malware_store.scanner_status(args.scanner_id)
         if args.malware_command == "scan":

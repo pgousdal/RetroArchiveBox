@@ -1,0 +1,1 @@
+{"protocol_version":"1","provider_id":"avbox","instance_id":"fixture-avbox","profiles":{"current-standard":{"available":true,"version":"2026.1","representations":["object","file"]},"amiga-historical":{"available":false,"version":"2026.1","representations":["adf"],"reason":"runtime-not-qualified"}}}

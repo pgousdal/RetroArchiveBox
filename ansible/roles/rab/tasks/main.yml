@@ -16,22 +16,6 @@
     update_cache: true
   when: rab_aria2_enabled
 
-- name: Install optional Debian ClamAV command-line scanner
-  ansible.builtin.apt:
-    name:
-      - clamav
-      - clamav-freshclam
-    state: present
-    update_cache: true
-  when: rab_clamav_enabled
-
-- name: Install optional Debian YARA rule engine
-  ansible.builtin.apt:
-    name: yara
-    state: present
-    update_cache: true
-  when: rab_yara_enabled
-
 - name: Install optional Debian optical track tools
   ansible.builtin.apt:
     name:
@@ -54,14 +38,6 @@
   register: rab_greaseweazle_install
   changed_when: rab_greaseweazle_install.stdout is search('Successfully installed')
   when: rab_greaseweazle_enabled
-
-- name: Apply explicit ClamAV signature updater policy
-  ansible.builtin.systemd_service:
-    name: clamav-freshclam.service
-    enabled: "{{ rab_clamav_freshclam_enabled }}"
-    state: "{{ 'started' if rab_clamav_freshclam_enabled else 'stopped' }}"
-    daemon_reload: true
-  when: rab_clamav_enabled
 
 - name: Create RAB system group
   ansible.builtin.group:

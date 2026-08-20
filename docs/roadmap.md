@@ -412,6 +412,21 @@ OFS/FFS and Commodore DOS traversal, mixed-mode optical analysis, real hardware,
 real collections, Debian 13 dependency qualification and production soak are
 **NOT PERFORMED**. Museum-grade status remains **NO**.
 
+## M7.2 External Malware Analysis Provider / AVBox Integration (2026-08-20)
+
+RAB now queues deterministic, representation-aware external analysis requests;
+streams immutable payloads without exposing CAS paths; discovers profiles;
+polls asynchronous jobs; verifies protocol/request/job/hash/size/representation
+evidence; and imports normalized observations through `MalwareStore`. AVBox is
+optional: offline requests remain pending and preservation completes with
+warnings. CLI/API/RetroWeb, provider doctor, M6.12 reports, bounded contained
+selection, schemas, canonical fixtures and metadata products are included.
+
+The default execution architecture is external provider. Local ClamAV, YARA,
+historical and native adapters remain deprecated compatibility code, and RAB
+Ansible no longer provisions ClamAV/YARA. Real AVBox and LAN/TLS integration
+are **NOT PERFORMED**. Museum-grade status remains **NO**.
+
 ## M7.1 Historical & Native Malware Analysis Framework (2026-08-19)
 
 M7.1 extends the M5 malware evidence plane with scanner classes, explicit

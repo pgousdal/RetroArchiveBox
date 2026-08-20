@@ -311,9 +311,9 @@ class WatchedInboxManager:
         result = IngestManager(self.archive, inbox_root=self.inbox_root, stability_seconds=0).ingest_file(path, category=policy.inbox_id, rights=rights, provenance=provenance, notes="", source_description="watched inbox:" + policy.inbox_id, logical_path=relative)
         if policy.malware_policy.startswith("scan:"):
             try:
-                malware = MalwareStore(self.archive)
-                malware.scan_object(result["object_id"], policy.malware_policy.split(":", 1)[1])
-                result["malware_state"] = malware.status(result["object_id"])["state"]
+                from .malware_provider import MalwareProviderManager
+                request = MalwareProviderManager(self.archive).submit(result["object_id"], profile=policy.malware_policy.split(":", 1)[1])
+                result["malware_state"] = request["state"]
             except Exception as exc:
                 warnings.append("malware analysis incomplete: " + str(exc))
         if policy.catalogue_enabled:

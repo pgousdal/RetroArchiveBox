@@ -11,7 +11,7 @@ from .analysis import AnalysisLimits, AnalysisManager
 from .errors import PolicyError, RabError
 from .identity import IdentityCatalogue
 from .local_ingest import ProvenanceClass
-from .malware import MalwareStore
+from .malware_provider import MalwareProviderManager
 from .model import Rights
 from .physical import CandidateKind, CandidateSafety, PhysicalMediaOrchestrator
 from .physical_registry import PhysicalMediaClass, PhysicalMediaRegistry
@@ -55,8 +55,8 @@ TRANSITIONS = {
 
 PROFILES = {
     "quick": {"capture_repeats": 1, "require_repeat_match": False, "analysis_policy": "metadata-only", "malware_profile": None, "products": ("capture-status", "provenance-inventory")},
-    "standard": {"capture_repeats": 1, "require_repeat_match": False, "analysis_policy": "preserve", "malware_profile": "current-free", "products": ("capture-status", "contained-manifest", "analysis-coverage", "provenance-inventory")},
-    "conservative": {"capture_repeats": 2, "require_repeat_match": True, "analysis_policy": "archival", "malware_profile": "current-free", "products": ("fixity", "capture-status", "contained-manifest", "format-inventory", "analysis-coverage", "provenance-inventory")},
+    "standard": {"capture_repeats": 1, "require_repeat_match": False, "analysis_policy": "preserve", "malware_profile": "current-standard", "products": ("capture-status", "contained-manifest", "analysis-coverage", "provenance-inventory")},
+    "conservative": {"capture_repeats": 2, "require_repeat_match": True, "analysis_policy": "archival", "malware_profile": "retro-standard", "products": ("fixity", "capture-status", "contained-manifest", "format-inventory", "analysis-coverage", "provenance-inventory")},
 }
 
 
@@ -66,7 +66,7 @@ class PreservationWorkflow:
     def __init__(self, archive, *, media=None, registry=None, analysis=None, malware=None, identity=None, products=None):
         self.archive = archive; self.media = media or PhysicalMediaOrchestrator(archive)
         self.registry = registry or PhysicalMediaRegistry(archive); self.analysis = analysis or AnalysisManager(archive)
-        self.malware = malware or MalwareStore(archive); self.identity = identity or IdentityCatalogue(archive)
+        self.malware = malware or MalwareProviderManager(archive); self.identity = identity or IdentityCatalogue(archive)
         self.products = products or ProductBuilder(archive); self.root = archive.root / "preservation-workflows"
         self.runs_root = self.root / "runs"; self.events_root = self.root / "events"; self.reports_root = self.root / "reports"
 
@@ -187,9 +187,11 @@ class PreservationWorkflow:
             targets = list(run["preservation_objects"])
             for analysis_id in run["analysis_jobs"]:
                 targets.extend(x.get("object_id") for x in self.analysis.show(analysis_id).get("discovered", []) if x.get("object_id"))
-            for object_id in dict.fromkeys(targets):
-                job = self.malware.run_analysis(object_id, profile=profile["malware_profile"]); run["malware_jobs"].append(job["job_id"])
-                if job.get("warnings"): warnings.append("malware coverage incomplete")
+            for object_id in list(dict.fromkeys(targets))[:256]:
+                request = self.malware.submit(object_id, profile=profile["malware_profile"])
+                if request.get("provider_job_id"): request = self.malware.poll(request["request_id"])
+                run["malware_jobs"].append(request["request_id"])
+                if request.get("state") not in {"IMPORTED", "COMPLETE"}: warnings.append("malware analysis " + request.get("state", "PENDING_PROVIDER"))
         self._event(run, "malware_complete", outcome="WARN" if warnings else "PASS"); self._save(run)
         self.transition(run["run_id"], WorkflowState.IDENTIFYING, event_type="identity_started"); run = self.show(run["run_id"])
         if not run["identity"]: run["identity"].append(self.identity.rebuild()); self._event(run, "identity_complete"); self._save(run)
@@ -225,7 +227,12 @@ class PreservationWorkflow:
         fixity = []
         for object_id in run["preservation_objects"]:
             item = self.archive.show(object_id); fixity.append({key: item[key] for key in ("sha256", "blake3", "sha1", "md5", "crc32", "size")})
-        report = {"schema": "rab-preservation-report-v1", "run_id": run_id, "state": run["state"], "physical_medium": self.registry.public(self.registry.show(run["physical_medium_id"])) if run.get("physical_medium_id") else None, "profile": run["profile"], "capture_strategy": (run.get("plan") or {}).get("capture", {}).get("method"), "capture_count": len(run["captures"]), "repeatability": "DISAGREEMENT" if len(run["preservation_objects"]) > 1 else "CONFIRMED" if len(run["captures"]) > 1 else "NOT_REPEATED", "preservation_objects": run["preservation_objects"], "fixity": fixity, "analysis_states": [x.get("state") for x in analyses], "contained_objects": sum(len(x.get("discovered", [])) for x in analyses), "cas_objects_materialized": sum(len(x.get("materialized", [])) for x in analyses), "malware_jobs": len(run["malware_jobs"]), "products": [x.get("product") for x in run["products"]], "provenance": (self.registry.public(self.registry.show(run["physical_medium_id"])) if run.get("physical_medium_id") else {}).get("provenance"), "rights": (self.registry.public(self.registry.show(run["physical_medium_id"])) if run.get("physical_medium_id") else {}).get("rights"), "warnings": list(run["warnings"]), "failures": list(run["failures"]), "needs_operator": bool(run["review_reasons"]), "review_reasons": list(run["review_reasons"]), "safe_to_remove": run["state"] in {x.value for x in TERMINAL}}
+        malware_requests = []
+        for request_id in run["malware_jobs"]:
+            try:
+                request = self.malware.show(request_id); malware_requests.append({"provider": request["provider_id"], "request_id": request_id, "profile": request["requested_profile"], "status": request["state"], "observations": len(request.get("observations", []))})
+            except RabError: malware_requests.append({"request_id": request_id, "status": "LEGACY_OR_UNAVAILABLE"})
+        report = {"schema": "rab-preservation-report-v1", "run_id": run_id, "state": run["state"], "physical_medium": self.registry.public(self.registry.show(run["physical_medium_id"])) if run.get("physical_medium_id") else None, "profile": run["profile"], "capture_strategy": (run.get("plan") or {}).get("capture", {}).get("method"), "capture_count": len(run["captures"]), "repeatability": "DISAGREEMENT" if len(run["preservation_objects"]) > 1 else "CONFIRMED" if len(run["captures"]) > 1 else "NOT_REPEATED", "preservation_objects": run["preservation_objects"], "fixity": fixity, "analysis_states": [x.get("state") for x in analyses], "contained_objects": sum(len(x.get("discovered", [])) for x in analyses), "cas_objects_materialized": sum(len(x.get("materialized", [])) for x in analyses), "malware_jobs": len(run["malware_jobs"]), "malware_analysis": malware_requests, "products": [x.get("product") for x in run["products"]], "provenance": (self.registry.public(self.registry.show(run["physical_medium_id"])) if run.get("physical_medium_id") else {}).get("provenance"), "rights": (self.registry.public(self.registry.show(run["physical_medium_id"])) if run.get("physical_medium_id") else {}).get("rights"), "warnings": list(run["warnings"]), "failures": list(run["failures"]), "needs_operator": bool(run["review_reasons"]), "review_reasons": list(run["review_reasons"]), "safe_to_remove": run["state"] in {x.value for x in TERMINAL}}
         self.archive._atomic_json(path, report); return report
 
     @staticmethod
@@ -252,7 +259,7 @@ class PreservationWorkflow:
             state = "PASS" if any(x.get("kind") == kind and x.get("available") for x in candidates) else "NOT_APPLICABLE" if media_class and kind not in media_class else "WARN"
             checks.append({"check": kind, "state": state})
         capabilities = self.analysis.capabilities(); checks.append({"check": "analysis", "state": "PASS" if any(x.get("available") for x in capabilities) else "WARN", "available": sum(bool(x.get("available")) for x in capabilities)})
-        scanners = self.malware.scanners_status(); checks.append({"check": "malware", "state": "PASS" if any(x.get("available") for x in scanners) else "WARN"})
+        malware = self.malware.doctor(); checks.append({"check": "malware_provider", "state": malware["outcome"], "providers": malware["providers"]})
         overall = "FAIL" if any(x["state"] == "FAIL" for x in checks) else "WARN" if any(x["state"] == "WARN" for x in checks) else "PASS"
         return {"schema": "rab-preservation-doctor-v1", "overall": overall, "checks": checks}
 

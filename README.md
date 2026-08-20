@@ -226,7 +226,29 @@ Deterministic analysis keys make unchanged reruns idempotent; analyzer-version
 changes and explicit retries remain auditable. CLI commands cover capabilities,
 plan, run, show, tree, observations, contained objects, and retry.
 
-## M7.1 Historical and native malware evidence
+## M7.2 External AVBox malware provider
+
+**RAB is the archive. AVBox is the malware analysis laboratory.** RAB owns the
+provider-neutral request queue, immutable payload identity, observation storage,
+aggregate state and delivery policy. AVBox owns engines, rules, definitions,
+emulators, native retro scanners and their qualification. AVBox never owns or
+modifies RAB preservation masters.
+
+Configure the optional provider with `RAB_AVBOX_ENABLED`, `RAB_AVBOX_URL`, and
+preferably `RAB_AVBOX_TOKEN_FILE`. HTTPS verification is the default. `rab
+malware providers`, `capabilities`, `profiles`, `submit`, `request-status
+--poll`, `pending`, `submit-pending`, `cancel`, `results`, and `doctor` operate
+the durable queue. Uploads stream verified immutable objects and never disclose
+CAS paths. Returned request, job, SHA-256, size and representation identities
+must all match before observations are imported.
+
+AVBox outage produces `PENDING_PROVIDER`, not `CLEAN` or preservation failure.
+Detection also does not invalidate preservation; delivery policy remains
+separate. `NOT_DETECTED` is not `CLEAN`. See
+[the provider contract and migration guide](docs/malware-providers.md). Real
+AVBox integration qualification has not been performed.
+
+## M7.1 Historical and native malware evidence (legacy execution model)
 
 RAB preserves malware observations rather than cleaning content. Existing
 ClamAV remains available, while scanner classes now include current host,
@@ -304,6 +326,10 @@ real ClamAV qualification because `clamscan` was unavailable; M5.1 records the
 later bounded runtime qualification. No live malware was acquired.
 
 ## M5.1 Operational ClamAV Qualification
+
+Historical note: this records the M5.1 qualification. M7.2 removed ClamAV and
+freshclam provisioning from RAB; production scanner execution now belongs to
+AVBox. The evidence remains valid and readable.
 
 M5.1 adds explicit Debian-family provisioning for `clamav` and
 `clamav-freshclam`, both disabled by default through `rab_clamav_enabled` and

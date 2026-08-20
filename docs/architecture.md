@@ -80,6 +80,40 @@ immutable preservation master
         +--> immutable observation + raw report <-----+
 ```
 
+## External Malware Provider Boundary (M7.2)
+
+RAB IS THE ARCHIVE. AVBOX IS THE MALWARE ANALYSIS LABORATORY.
+
+    RAB archive / immutable CAS / contained objects
+                    |
+                    | bounded immutable payload stream
+                    v
+    AVBox API: engines / rules / historical runtimes / emulators
+                    |
+                    | versioned structured observations
+                    v
+    RAB MalwareStore / aggregate / Broker policy / reports
+
+`MalwareAnalysisProvider` separates capability discovery, profile discovery,
+submission, polling, result retrieval, cancellation and health from archive
+policy. `AVBoxProvider` uses protocol version 1 and streams a verified master to
+an asynchronous job. No CAS path or writable share is provided. HTTPS verifies
+certificates by default; tokens and CA configuration are operator state and are
+never returned by public projections.
+
+`MalwareProviderManager` persists deterministic requests under
+`malware-metadata/provider-requests`. Identity includes provider, SHA-256,
+size, representation, profile and profile version. Offline submissions remain
+`PENDING_PROVIDER`; polling imports only results whose protocol, request ID,
+provider job ID, SHA-256, size and representation match. Malformed, oversized,
+replayed/conflicting or mismatched evidence is rejected without attaching it.
+
+AVBox never owns or modifies RAB preservation masters. Provider failure and
+detection do not invalidate preservation. `NOT_DETECTED` is not `CLEAN`. The
+Resource Broker consumes stored observations only and never contacts AVBox
+during delivery. M7.1 local execution remains temporarily available only as a
+deprecated compatibility path; RAB Ansible no longer installs ClamAV or YARA.
+
 `MalwareObservation` is versioned as `rab-malware-observation-v1`. It retains
 object SHA-256, observation identity, scanner/vendor/product, scanner and
 engine versions, signature version/date, timestamp, execution environment,
@@ -120,6 +154,10 @@ materialized copies in disposable emulators/VMs; masters are never writable or
 mounted into those environments.
 
 ## M5.1 ClamAV Operational Boundary
+
+Historical boundary: M7.2 supersedes this deployment model. RAB no longer
+provisions ClamAV/freshclam/YARA; their execution and definition lifecycle are
+owned by AVBox. Existing observations and qualification evidence remain valid.
 
 The Debian role installs the official `clamav` and `clamav-freshclam` packages
 only when `rab_clamav_enabled=true`. The freshclam service is separately

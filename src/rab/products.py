@@ -26,9 +26,17 @@ class ProductBuilder:
 
     def build(self, product: str, *, platform: str | None = None, format_id: str | None = None,
               authority: str | None = None, hash_algorithm: str | None = None) -> dict:
-        if product not in {"identity", "fixity", "authority-crosswalk", "containment", "physical-media", "capture-status", "set-completeness", "provenance-inventory", "preservation-run-report"} | ANALYSIS_PRODUCTS:
+        if product not in {"identity", "fixity", "authority-crosswalk", "containment", "physical-media", "capture-status", "set-completeness", "provenance-inventory", "preservation-run-report", "malware-observations", "malware-provider-requests"} | ANALYSIS_PRODUCTS:
             raise RabError("unknown derived product")
-        if product == "preservation-run-report":
+        if product in {"malware-observations", "malware-provider-requests"}:
+            if product == "malware-observations":
+                from .malware import MalwareStore
+                store = MalwareStore(self.archive, read_only=True); records = [store.public_observation(x) for x in store.observations()]
+            else:
+                from .malware_provider import MalwareProviderManager
+                manager = MalwareProviderManager(self.archive); records = [manager.public(x) for x in manager.requests()]
+            rows = []
+        elif product == "preservation-run-report":
             from .preservation import PreservationWorkflow
             workflow = PreservationWorkflow(self.archive); records = [workflow.public_report(workflow.report(x["run_id"])) for x in workflow.list()]
             rows = []
@@ -70,7 +78,7 @@ class ProductBuilder:
             rows = []
         else:
             rows = self.identity.search(platform=platform, format_id=format_id, authority=authority, hash_algorithm=hash_algorithm)
-        if product in ANALYSIS_PRODUCTS | {"physical-media", "capture-status", "set-completeness", "provenance-inventory", "preservation-run-report"}:
+        if product in ANALYSIS_PRODUCTS | {"physical-media", "capture-status", "set-completeness", "provenance-inventory", "preservation-run-report", "malware-observations", "malware-provider-requests"}:
             pass
         elif product == "identity":
             records = [self._identity_row(x) | {"relationships": self.identity.relationships("sha256:" + x["sha256"])} for x in rows]

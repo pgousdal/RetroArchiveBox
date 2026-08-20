@@ -15,6 +15,7 @@ from .redump import RedumpAuthority
 from .additional_authorities import AdditionalAuthority
 from .broker import BrokerError, ConsumerContext, ConsumerRegistry, DeliveryMode, ResourceBroker, ResolutionState
 from .malware import MalwareStore, aggregate
+from .malware_provider import MalwareProviderManager
 from .transports import AcquisitionPurpose, TransportResolver
 from .bootstrap import BootstrapStore
 from .identity import IdentityCatalogue
@@ -171,11 +172,21 @@ class CatalogueAPI:
         if route == "/api/v1/consumers":
             return 200, self.broker.registry.list()
         malware = MalwareStore(self.catalogue.archive, read_only=True, extended=True)
+        provider_manager = MalwareProviderManager(self.catalogue.archive, store=malware)
+        if route == "/api/v1/malware/providers": return 200, provider_manager.providers_status()
+        m = re.fullmatch(r"/api/v1/malware/providers/([a-z0-9-]+)", route)
+        if m:
+            provider = provider_manager.provider(m.group(1)); return 200, {**provider.public(), "health": provider.health()}
+        if route == "/api/v1/malware/requests": return 200, [provider_manager.public(x) for x in provider_manager.requests()]
+        m = re.fullmatch(r"/api/v1/malware/requests/(avreq-[0-9a-f]{32}(?:-[0-9a-f]{8})?)", route)
+        if m: return 200, provider_manager.public(provider_manager.show(m.group(1)))
         if route == "/api/v1/malware/status":
             return 200, malware.stats()
         if route == "/api/v1/malware/scanners":
             return 200, [malware.public_scanner_status(x) for x in malware.scanners_status()]
-        if route == "/api/v1/malware/profiles": return 200, malware.scanner_profiles()
+        if route == "/api/v1/malware/profiles":
+            try: return 200, {"provider_id": "avbox", "available": True, "profiles": provider_manager.profiles("avbox")}
+            except (OSError, PolicyError): return 200, {"provider_id": "avbox", "available": False, "profiles": {}}
         if route == "/api/v1/malware/analysis-sets": return 200, malware.analysis_sets()
         if route == "/api/v1/malware/analysis-jobs": return 200, [malware.public_analysis_job(x) for x in malware.analysis_jobs()]
         m = re.fullmatch(r"/api/v1/malware/analysis-jobs/([0-9a-f]+)", route)

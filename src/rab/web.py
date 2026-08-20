@@ -19,6 +19,7 @@ from .physical import PhysicalMediaOrchestrator
 from .qualification import QualificationManager
 from .analysis import AnalysisManager
 from .malware import MalwareStore
+from .malware_provider import MalwareProviderManager
 from .removable import RemovableManager
 from .physical_registry import PhysicalMediaRegistry
 from .tree_ingest import TreeIngestManager
@@ -237,7 +238,9 @@ class WebApplication:
         return 200, "text/html; charset=utf-8", self.page("Analysis " + job_id, content, retro), None
 
     def malware(self, retro):
-        store = MalwareStore(self.catalogue.archive, read_only=True, extended=True); observations = [store.public_observation(x) for x in store.observations()]; content = '<p>Malware results are timestamped observations, not preservation truth. NOT_DETECTED is not CLEAN.</p><table><tr><th>Object</th><th>Scanner</th><th>Class</th><th>Definitions</th><th>Coverage</th><th>Result</th><th>Detections</th></tr>'
+        store = MalwareStore(self.catalogue.archive, read_only=True, extended=True); manager = MalwareProviderManager(self.catalogue.archive, store=store); observations = [store.public_observation(x) for x in store.observations()]; providers = manager.providers_status(); requests = [manager.public(x) for x in manager.requests()]; content = '<p>RAB is the archive; AVBox is the malware analysis laboratory. Provider failure and malware detection do not invalidate preservation. NOT_DETECTED is not CLEAN.</p><h3>Providers</h3><ul>'
+        content += ''.join('<li>' + _e(x.get("provider_id")) + ': ' + _e(x.get("health", {}).get("state")) + ' / protocol ' + _e(x.get("protocol_version")) + '</li>' for x in providers) or '<li>No providers configured.</li>'
+        content += '</ul><h3>Requests</h3><table><tr><th>Request</th><th>Provider</th><th>Input</th><th>Representation</th><th>Profile</th><th>Status</th></tr>' + ''.join('<tr><td><code>' + _e(x.get("request_id")) + '</code></td><td>' + _e(x.get("provider_id")) + '</td><td><code>sha256:' + _e(x.get("object", {}).get("sha256")) + '</code></td><td>' + _e(x.get("object", {}).get("representation")) + '</td><td>' + _e(x.get("requested_profile")) + '</td><td>' + _e(x.get("state")) + '</td></tr>' for x in requests) + '</table><h3>Stored observations</h3><table><tr><th>Object</th><th>Scanner</th><th>Class</th><th>Definitions</th><th>Coverage</th><th>Result</th><th>Detections</th></tr>'
         content += ''.join('<tr><td><code>' + _e(x.get("object_sha256")) + '</code></td><td>' + _e(x.get("scanner_product", x.get("scanner_id"))) + '</td><td>' + _e(x.get("scanner_class")) + '</td><td>' + _e(x.get("definitions_identity", x.get("signature_version"))) + '</td><td>' + _e(x.get("coverage")) + '</td><td>' + _e(x.get("result")) + '</td><td>' + _e(', '.join(y.get("name", "") for y in x.get("detections", []))) + '</td></tr>' for x in observations) + '</table>'
         return 200, "text/html; charset=utf-8", self.page("Malware Evidence", content, retro), None
 

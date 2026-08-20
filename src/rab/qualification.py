@@ -105,7 +105,7 @@ class QualificationManager:
             evidence["os_release"] = dict(line.split("=", 1) for line in Path("/etc/os-release").read_text(encoding="utf-8").splitlines() if "=" in line)
         except OSError: evidence["os_release"] = {}
         tools = {}
-        for tool in ("python3", "dd", "lsblk", "blkid", "rsync", "aria2c", "clamscan", "cdrdao", "gw"):
+        for tool in ("python3", "dd", "lsblk", "blkid", "rsync", "aria2c", "cdrdao", "gw"):
             path = shutil.which(tool); tools[tool] = {"available": bool(path), "path": path}
             if path:
                 try:

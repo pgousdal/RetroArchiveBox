@@ -9,6 +9,8 @@ from rab.catalogue import Catalogue
 from rab.cli import parser
 from rab.errors import PolicyError
 from rab.model import IngestRequest, Rights
+from rab.malware_provider import FixtureProvider, MalwareProviderManager
+from rab.malware import MalwareStore
 from rab.physical import CandidateSafety
 from rab.physical_registry import PhysicalMediaRegistry
 from rab.preservation import PreservationWorkflow, WorkflowState
@@ -52,9 +54,9 @@ class FakeMedia:
         return job
 
 
-def _prepared(tmp_path, *, profile="quick", kind="block", disagree=False, candidates=1):
+def _prepared(tmp_path, *, profile="quick", kind="block", disagree=False, candidates=1, malware=None):
     archive = Archive(tmp_path / "archive"); media = FakeMedia(archive, kind=kind, disagree=disagree, candidates=candidates)
-    manager = PreservationWorkflow(archive, media=media); run = manager.create(profile=profile)
+    manager = PreservationWorkflow(archive, media=media, malware=malware(archive) if callable(malware) else malware); run = manager.create(profile=profile)
     run = manager.prepare(run["run_id"], candidate_id=(f"{kind}:fixture-0" if candidates > 1 else None), title="Synthetic", provenance="original_physical_owned", rights="UNKNOWN", drive="A", floppy_profile="unknown")
     return archive, media, manager, run
 
@@ -115,3 +117,12 @@ def test_preserve_cli_is_above_expert_commands():
     assert args.command == "preserve" and args.preserve_command == "next" and args.non_interactive
     expert = parser().parse_args(["media", "optical", "jobs"])
     assert expert.command == "media" and expert.optical_command == "jobs"
+
+
+@pytest.mark.parametrize("scenario,expected", [("clean", "NO_DETECTIONS_OBSERVED"), ("detected", "MALWARE_DETECTED")])
+def test_preservation_external_provider_success_and_detection_do_not_fail(tmp_path, scenario, expected):
+    def provider(archive): return MalwareProviderManager(archive, providers={"avbox": FixtureProvider(scenario)})
+    archive, _, manager, run = _prepared(tmp_path, profile="standard", malware=provider)
+    completed = manager.execute(run["run_id"])
+    assert completed["state"] in {"COMPLETE", "COMPLETE_WITH_WARNINGS"} and MalwareStore(archive).status(completed["preservation_objects"][0])["state"] == expected
+    assert manager.report(run["run_id"])["malware_analysis"][0]["status"] == "IMPORTED"
