@@ -381,6 +381,23 @@ repeat metadata, partial/error captures, non-mounting inventory, and
 operator-local `rab removable` status/capture surfaces. Real disposable USB or
 SD hardware qualification remains **NOT PERFORMED**.
 
+## M6.12 End-to-End Physical Media Intake & Preservation (2026-08-20)
+
+Implemented a persistent, validated preservation-run state machine with an
+append-only audit log, quick/standard/conservative profiles, unified safe media
+discovery, physical registration, explicit planning, storage preflight,
+capture/repeat verification, crash-safe downstream resume, bounded M6.11
+analysis, malware coverage recording, identity rebuilding, scoped products,
+review queue, collection progress, deterministic public-safe reports, CLI,
+read-only API and no-JavaScript RetroWeb views. Existing M6.7/M6.8/M6.9 capture
+managers remain authoritative and all captured bytes cross `Archive.ingest`.
+
+Qualification used generated fixtures for optical, removable and flux adapter
+paths plus an end-to-end synthetic archive/contained-object workflow. Real
+hardware qualification and real collection qualification are **NOT
+PERFORMED**. Automatic hotplug, unattended eject/unmount, new format parsers,
+and distributed workers remain deferred. Museum-grade status remains **NO**.
+
 ## M6.11 Captured Image Analysis & Contained Object Ingest (2026-08-20)
 
 The earlier foundation is retained and hardened with explicit lifecycle and

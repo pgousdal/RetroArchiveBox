@@ -180,6 +180,30 @@ then opt in to large online bootstrap. A backup acknowledgement without a
 successful restore test is reported as `WARNING`; RAB does not pretend to
 implement or verify replicas.
 
+## M6.12 End-to-end physical preservation
+
+The normal operator entry point is now `rab preserve next`. It discovers one
+safe candidate, refuses ambiguity, registers or selects a physical object,
+shows the capture plan, and—after explicit confirmation—runs capture, fixity,
+immutable ingest, contained analysis, malware evidence, identity rebuilds and
+scoped metadata products. Use `rab preserve plan` before execution,
+`rab preserve resume RUN` after interruption, `rab preserve review` for
+decisions, and `rab preserve report RUN` for the durable outcome. Lower-level
+`rab media optical`, `rab removable`, `rab media flux`, `rab physical`, `rab
+analyze`, and `rab malware` commands remain available for expert operation.
+
+Start a batch with `rab preserve intake begin --provenance
+original_physical_owned --platform amiga`, and check readiness with `rab
+preserve doctor`. Non-interactive `preserve next` requires `--yes` and still
+fails closed when device or strategy selection is ambiguous. RAB never infers
+publication rights from ownership, never analyzes the live device after a
+master exists, and never silently substitutes a lower-fidelity capture.
+
+This milestone is fixture-qualified only. No real media or hardware was used,
+and museum-grade status is not claimed. See
+[`docs/preservation-workflow.md`](docs/preservation-workflow.md) for the
+operator checklist and qualification boundary.
+
 ## M6.11 Contained object analysis
 
 `rab analyze object <object-id>` analyzes a disposable copy of a preserved

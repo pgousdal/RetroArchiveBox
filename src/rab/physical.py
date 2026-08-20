@@ -155,17 +155,17 @@ class PhysicalMediaOrchestrator:
         self.output_fn(json.dumps(plan, indent=2, sort_keys=True))
         return self.input_fn("Proceed with preservation capture? [y/N] ").strip().lower() in {"y", "yes"}
 
-    def _capture(self, candidate: dict, plan: dict):
+    def _capture(self, candidate: dict, plan: dict, *, physical_medium_id=None, repeat_of=None):
         kind = CandidateKind(candidate["kind"]); capture = plan["capture"]
         provenance, rights = ProvenanceClass(plan["provenance"]), Rights(plan["rights"])
         notes = json.dumps(plan.get("metadata", {}), sort_keys=True)
         if kind is CandidateKind.OPTICAL:
-            return self.optical.capture(candidate["device"], rights=rights, provenance=provenance, notes=notes, verification=plan["verification"]["policy"])
+            return self.optical.capture(candidate["device"], physical_medium_id=physical_medium_id, repeat_of=repeat_of, rights=rights, provenance=provenance, notes=notes, verification=plan["verification"]["policy"])
         if kind is CandidateKind.BLOCK:
-            return self.block.capture(candidate["device"], rights=rights, provenance=provenance, notes=notes)
+            return self.block.capture(candidate["device"], physical_medium_id=physical_medium_id, repeat_of=repeat_of, rights=rights, provenance=provenance, notes=notes)
         if not capture.get("profile") or not capture.get("drive"): raise PolicyError("Greaseweazle capture requires explicit --profile and --drive")
         profile = capture["profile"]
-        return self.flux.capture(candidate["device"], profile=profile, drive=capture.get("drive") or "A", tracks=capture.get("tracks") or "c=0-79:h=0-1", rights=rights, provenance=provenance, notes=notes, verification=plan["verification"]["policy"])
+        return self.flux.capture(candidate["device"], profile=profile, physical_medium_id=physical_medium_id, repeat_of=repeat_of, drive=capture.get("drive") or "A", tracks=capture.get("tracks") or "c=0-79:h=0-1", rights=rights, provenance=provenance, notes=notes, verification=plan["verification"]["policy"])
 
     def _post_capture(self, result: dict, plan: dict) -> dict:
         object_id = result.get("object_id")

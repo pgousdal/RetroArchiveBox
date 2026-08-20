@@ -437,6 +437,38 @@ host and storage, ingest owned/local physical media and purchased downloads,
 run fixity and backup/restore checks, and only then enable large online
 bootstrap or mirroring. Implemented does not mean physically qualified.
 
+## End-to-End Preservation Workflow (M6.12)
+
+`PreservationWorkflow` is a persistent orchestration layer above the existing
+physical registry, `PhysicalMediaOrchestrator`, optical/block/flux managers,
+`Archive.ingest`, `AnalysisManager`, malware store, universal identity, and
+`ProductBuilder`. It does not implement another capture adapter. A run has a
+validated current state plus immutable, sequence-numbered events. Step results
+are durably saved before the next state transition; resume detects an already
+ingested object and continues downstream without rereading the medium.
+
+The model remains a graph, not one identity:
+
+    PHYSICAL MEDIUM
+        -> CAPTURE ATTEMPT
+        -> IMMUTABLE PRESERVATION MASTER
+        -> STRUCTURAL REPRESENTATION / CONTAINER / FILESYSTEM
+        -> EXACT CONTAINED BYTE OBJECT
+        -> IDENTITY / AUTHORITY / MALWARE / RIGHTS
+        -> RESOURCE BROKER / CONSUMERS
+
+Optical sessions may branch into data and audio tracks, device images may have
+several partitions, and nested containers may form deeper paths. Capture
+occurrences and physical copies remain distinct even when exact bytes converge
+in CAS. Provenance follows relationships; rights are never broadened.
+
+Profiles select repeat policy, bounded M6.11 analysis, malware coverage and
+products. A conservative repeat disagreement preserves both results and enters
+`NEEDS_OPERATOR`. Optional analyzer/scanner absence produces warnings after a
+successful preservation rather than invalidating evidence. Public projections
+remove device, staging, command, serial, operator and private-note fields.
+Cancellation stops future steps and retains every ingested master.
+
 ## Contained Object Discovery (M6.11)
 
 `AnalysisManager` is a bounded analysis plane above immutable RAB objects:

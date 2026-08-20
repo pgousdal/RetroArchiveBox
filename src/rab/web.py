@@ -22,6 +22,7 @@ from .malware import MalwareStore
 from .removable import RemovableManager
 from .physical_registry import PhysicalMediaRegistry
 from .tree_ingest import TreeIngestManager
+from .preservation import PreservationWorkflow
 
 
 CSS = """body { font-family: Arial, Helvetica, sans-serif; margin: 1em; max-width: 60em; color: #111; background: #fff; }
@@ -88,6 +89,8 @@ class WebApplication:
             if route == "/inboxes": return self.inboxes(retro)
             if route == "/media": return self.media_jobs(retro)
             if route == "/physical-media": return self.physical_media(retro)
+            if route == "/preservation": return self.preservation(retro)
+            if route.startswith("/preservation/"): return self.preservation_detail(unquote(route.removeprefix("/preservation/")), retro)
             if route == "/qualification": return self.qualification(retro)
             if route == "/analysis": return self.analysis(retro)
             if route.startswith("/analysis/"): return self.analysis_detail(unquote(route.removeprefix("/analysis/")), retro)
@@ -123,7 +126,7 @@ class WebApplication:
     def home(self, retro):
         stats = self.broker.stats()
         content = '<p>Preservation-first archive browser.</p><form action="' + ("/retro" if retro else "/web") + '/search" method="get"><label for="q">Search:</label><input type="text" id="q" name="q" size="32" /><input type="submit" value="Search" /></form>'
-        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li><li><a href="' + ("/retro" if retro else "/web") + '/ingest">Local ingest</a></li><li><a href="' + ("/retro" if retro else "/web") + '/media">Media captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/removable">Removable media</a></li><li><a href="' + ("/retro" if retro else "/web") + '/physical-media">Unified physical media</a></li><li><a href="' + ("/retro" if retro else "/web") + '/qualification">Qualification</a></li><li><a href="' + ("/retro" if retro else "/web") + '/analysis">Contained analysis</a></li><li><a href="' + ("/retro" if retro else "/web") + '/malware">Malware evidence</a></li><li><a href="' + ("/retro" if retro else "/web") + '/optical">Optical captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/flux">Flux captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/products">Derived products</a></li></ul>'
+        content += '<h3>Browse</h3><ul><li><a href="' + ("/retro" if retro else "/web") + '/preservation">Preservation workflows</a></li><li><a href="' + ("/retro" if retro else "/web") + '/platforms">Platforms</a></li><li><a href="' + ("/retro" if retro else "/web") + '/sources">Sources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/search">Resources</a></li><li><a href="' + ("/retro" if retro else "/web") + '/bootstrap">Bootstrap status</a></li><li><a href="' + ("/retro" if retro else "/web") + '/ingest">Local ingest</a></li><li><a href="' + ("/retro" if retro else "/web") + '/media">Media captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/removable">Removable media</a></li><li><a href="' + ("/retro" if retro else "/web") + '/physical-media">Unified physical media</a></li><li><a href="' + ("/retro" if retro else "/web") + '/qualification">Qualification</a></li><li><a href="' + ("/retro" if retro else "/web") + '/analysis">Contained analysis</a></li><li><a href="' + ("/retro" if retro else "/web") + '/malware">Malware evidence</a></li><li><a href="' + ("/retro" if retro else "/web") + '/optical">Optical captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/flux">Flux captures</a></li><li><a href="' + ("/retro" if retro else "/web") + '/products">Derived products</a></li></ul>'
         content += '<p class="muted">Indexed resources: ' + _e(stats.get("resources", 0)) + '; resource sets: ' + _e(stats.get("resource_sets", 0)) + '.</p>'
         return 200, "text/html; charset=utf-8", self.page("Home", content, retro), None
 
@@ -249,6 +252,19 @@ class WebApplication:
         registry = PhysicalMediaRegistry(self.catalogue.archive)
         content += ''.join('<tr><td><a href="' + prefix + '/physical/' + _e(x.get("physical_medium_id")) + '"><code>' + _e(x.get("physical_medium_id")) + '</code></a></td><td>' + _e(x.get("media_class")) + '</td><td>' + _e(x.get("metadata", {}).get("title")) + '</td><td>' + _e(x.get("provenance")) + '</td><td>' + _e(x.get("rights")) + '</td><td>' + _e(len(registry.captures(x["physical_medium_id"]))) + '</td><td>' + _e(len(registry.observations(x["physical_medium_id"]))) + '</td></tr>' for x in records) + '</table>'
         return 200, "text/html; charset=utf-8", self.page("Physical Media Registry", content, retro), None
+
+    def preservation(self, retro):
+        manager = PreservationWorkflow(self.catalogue.archive); prefix = "/retro" if retro else "/web"
+        runs = manager.list(); review = manager.review(); progress = manager.progress()
+        content = '<p>Read-only end-to-end preservation status. Device control remains operator-local.</p><p>Registered: ' + _e(progress.get("registered")) + '; preserved: ' + _e(progress.get("preserved")) + '; needs review: ' + _e(progress.get("needs_review")) + '</p><table><tr><th>Run</th><th>Medium</th><th>Profile</th><th>State</th><th>Masters</th><th>Warnings</th></tr>'
+        content += ''.join('<tr><td><a href="' + prefix + '/preservation/' + _e(x.get("run_id")) + '">' + _e(x.get("run_id")) + '</a></td><td><code>' + _e(x.get("physical_medium_id")) + '</code></td><td>' + _e(x.get("profile")) + '</td><td>' + _e(x.get("state")) + '</td><td>' + _e(len(x.get("preservation_objects", []))) + '</td><td>' + _e(len(x.get("warnings", []))) + '</td></tr>' for x in runs) + '</table><h3>Needs review</h3><ul>' + (''.join('<li>' + _e(x.get("run_id")) + ': ' + _e(x.get("review_reasons")) + '</li>' for x in review) or '<li>No runs need review.</li>') + '</ul>'
+        return 200, "text/html; charset=utf-8", self.page("Preservation", content, retro), None
+
+    def preservation_detail(self, run_id, retro):
+        manager = PreservationWorkflow(self.catalogue.archive); run = manager.public(manager.show(run_id)); report = manager.public_report(manager.report(run_id)); events = manager.events(run_id)
+        content = '<dl><dt>Run</dt><dd><code>' + _e(run_id) + '</code></dd><dt>State</dt><dd>' + _e(run.get("state")) + '</dd><dt>Physical medium</dt><dd><code>' + _e(run.get("physical_medium_id")) + '</code></dd><dt>Profile</dt><dd>' + _e(run.get("profile")) + '</dd><dt>Capture strategy</dt><dd>' + _e(report.get("capture_strategy")) + '</dd><dt>Repeatability</dt><dd>' + _e(report.get("repeatability")) + '</dd><dt>Contained objects</dt><dd>' + _e(report.get("contained_objects")) + '</dd><dt>Rights</dt><dd>' + _e(report.get("rights")) + '</dd></dl><h3>Timeline</h3><ol>'
+        content += ''.join('<li>' + _e(x.get("recorded_at")) + ' — ' + _e(x.get("event_type")) + ' (' + _e(x.get("outcome")) + ')</li>' for x in events) + '</ol><h3>Preservation objects</h3><ul>' + ''.join('<li><code>' + _e(x) + '</code></li>' for x in report.get("preservation_objects", [])) + '</ul><h3>Warnings</h3><ul>' + (''.join('<li>' + _e(x) + '</li>' for x in report.get("warnings", [])) or '<li>None.</li>') + '</ul>'
+        return 200, "text/html; charset=utf-8", self.page("Preservation Run", content, retro), None
 
     def physical_detail(self, media_id, retro):
         registry = PhysicalMediaRegistry(self.catalogue.archive); record = registry.public(registry.show(media_id)); captures = [registry.public_capture(x) for x in registry.captures(media_id)]; observations = registry.observations(media_id); evidence = registry.public_evidence(media_id)

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/preservation-run-v1.json",
+  "title": "RAB preservation workflow run",
+  "type": "object",
+  "required": ["schema", "version", "run_id", "state", "created_at", "profile", "captures", "preservation_objects", "event_count"],
+  "properties": {
+    "schema": {"const": "rab-preservation-run-v1"},
+    "version": {"const": 1},
+    "run_id": {"type": "string", "pattern": "^rab-preserve-[0-9a-f]{32}$"},
+    "state": {"type": "string"},
+    "physical_medium_id": {"type": ["string", "null"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "profile": {"enum": ["quick", "standard", "conservative"]},
+    "captures": {"type": "array"},
+    "preservation_objects": {"type": "array", "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}},
+    "event_count": {"type": "integer", "minimum": 0}
+  },
+  "additionalProperties": true
+}

@@ -28,6 +28,7 @@ from .analysis import AnalysisManager
 from .removable import RemovableManager
 from .physical_registry import PhysicalMediaRegistry
 from .tree_ingest import TreeIngestManager
+from .preservation import PreservationWorkflow
 
 
 class CatalogueAPI:
@@ -60,6 +61,11 @@ class CatalogueAPI:
             status["preservation_store"] = self.catalogue.archive.objects.is_dir()
             status["catalogue_available"] = True
             return 200, status
+        preservation = PreservationWorkflow(self.catalogue.archive)
+        if route in {"/api/v1/preservation", "/api/v1/preservation/runs"}: return 200, [preservation.public(x) for x in preservation.list()]
+        if route == "/api/v1/preservation/review": return 200, preservation.review()
+        m = re.fullmatch(r"/api/v1/preservation/runs/(rab-preserve-[0-9a-f]{32})(/report)?", route)
+        if m: return 200, preservation.public_report(preservation.report(m.group(1))) if m.group(2) else preservation.public(preservation.show(m.group(1)))
         if route == "/api/v1/sources":
             return 200, [x.public() for x in self.registry.load().values()] if self.registry else []
         if route == "/api/v1/acquisition/transports":

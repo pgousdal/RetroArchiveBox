@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/preservation-report-v1.json",
+  "title": "RAB public-safe preservation run report",
+  "type": "object",
+  "required": ["schema", "run_id", "state", "preservation_objects", "fixity", "warnings", "needs_operator"],
+  "properties": {
+    "schema": {"const": "rab-preservation-report-v1"},
+    "run_id": {"type": "string", "pattern": "^rab-preserve-[0-9a-f]{32}$"},
+    "state": {"type": "string"},
+    "preservation_objects": {"type": "array"},
+    "fixity": {"type": "array"},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "needs_operator": {"type": "boolean"}
+  },
+  "additionalProperties": true
+}

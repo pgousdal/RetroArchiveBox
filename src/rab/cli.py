@@ -32,6 +32,7 @@ from .analysis import AnalysisLimits, AnalysisManager
 from .removable import RemovableManager
 from .physical_registry import ConditionType, PhysicalMediaClass, PhysicalMediaRegistry
 from .tree_ingest import TreeIngestManager
+from .preservation import PreservationWorkflow
 
 
 def parser() -> argparse.ArgumentParser:
@@ -112,6 +113,16 @@ def parser() -> argparse.ArgumentParser:
     physical_analyze = physical_sub.add_parser("analyze"); physical_analyze.add_argument("physical_medium_id"); physical_analyze.add_argument("--policy", choices=["metadata-only", "identify", "preserve", "archival"], default="metadata-only")
     physical_intake = physical_sub.add_parser("intake"); physical_intake_sub = physical_intake.add_subparsers(dest="intake_command", required=True); physical_intake_begin = physical_intake_sub.add_parser("begin"); physical_intake_begin.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.UNKNOWN.value); physical_intake_begin.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); physical_intake_begin.add_argument("--platform"); physical_intake_begin.add_argument("--vendor"); physical_intake_begin.add_argument("--operator"); physical_intake_sub.add_parser("status"); physical_intake_sub.add_parser("end")
     physical_set = physical_sub.add_parser("set"); physical_set_sub = physical_set.add_subparsers(dest="set_command", required=True); physical_set_register = physical_set_sub.add_parser("register"); physical_set_register.add_argument("--title", required=True); physical_set_register.add_argument("--edition"); physical_set_register.add_argument("--expected-count", type=int); physical_set_register.add_argument("--notes", default=""); physical_set_sub.add_parser("list"); physical_set_show = physical_set_sub.add_parser("show"); physical_set_show.add_argument("physical_set_id")
+    preserve = sub.add_parser("preserve", help="orchestrate safe end-to-end physical preservation")
+    preserve_sub = preserve.add_subparsers(dest="preserve_command", required=True)
+    preserve_sub.add_parser("devices"); preserve_sub.add_parser("list"); preserve_sub.add_parser("review"); preserve_sub.add_parser("doctor"); preserve_sub.add_parser("progress")
+    for command in ("show", "status", "resume", "cancel", "report"):
+        action = preserve_sub.add_parser(command); action.add_argument("run_id")
+    preserve_plan = preserve_sub.add_parser("plan"); preserve_plan.add_argument("--candidate"); preserve_plan.add_argument("--physical-medium"); preserve_plan.add_argument("--title"); preserve_plan.add_argument("--platform"); preserve_plan.add_argument("--media-class", choices=[x.value for x in PhysicalMediaClass]); preserve_plan.add_argument("--profile", choices=["quick", "standard", "conservative"], default="standard"); preserve_plan.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.UNKNOWN.value); preserve_plan.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); preserve_plan.add_argument("--drive"); preserve_plan.add_argument("--floppy-profile"); preserve_plan.add_argument("--tracks")
+    preserve_run = preserve_sub.add_parser("run"); preserve_run.add_argument("run_id"); preserve_run.add_argument("--non-interactive", action="store_true")
+    preserve_next = preserve_sub.add_parser("next"); preserve_next.add_argument("--candidate"); preserve_next.add_argument("--physical-medium"); preserve_next.add_argument("--title"); preserve_next.add_argument("--platform"); preserve_next.add_argument("--media-class", choices=[x.value for x in PhysicalMediaClass]); preserve_next.add_argument("--profile", choices=["quick", "standard", "conservative"], default="standard"); preserve_next.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.UNKNOWN.value); preserve_next.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); preserve_next.add_argument("--drive"); preserve_next.add_argument("--floppy-profile"); preserve_next.add_argument("--tracks"); preserve_next.add_argument("--non-interactive", action="store_true"); preserve_next.add_argument("--yes", action="store_true")
+    preserve_eject = preserve_sub.add_parser("eject"); preserve_eject.add_argument("candidate_id")
+    preserve_intake = preserve_sub.add_parser("intake"); preserve_intake_sub = preserve_intake.add_subparsers(dest="preserve_intake_command", required=True); preserve_intake_begin = preserve_intake_sub.add_parser("begin"); preserve_intake_begin.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.UNKNOWN.value); preserve_intake_begin.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); preserve_intake_begin.add_argument("--platform"); preserve_intake_begin.add_argument("--vendor"); preserve_intake_begin.add_argument("--operator"); preserve_intake_sub.add_parser("status"); preserve_intake_sub.add_parser("end")
     source = sub.add_parser("source", help="inspect and operate configured sources")
     source_sub = source.add_subparsers(dest="source_command", required=True)
     source_sub.add_parser("list")
@@ -234,7 +245,7 @@ def parser() -> argparse.ArgumentParser:
     product = sub.add_parser("product", help="build deterministic derived metadata products")
     product_sub = product.add_subparsers(dest="product_command", required=True)
     product_sub.add_parser("list")
-    product_build = product_sub.add_parser("build"); product_build.add_argument("product", choices=["identity", "fixity", "authority-crosswalk", "containment", "physical-media", "capture-status", "set-completeness", "provenance-inventory", "contained-manifest", "filesystem-manifest", "archive-manifest", "format-inventory", "analysis-coverage", "unsupported-formats", "duplicate-content", "source-provenance"]); product_build.add_argument("--platform"); product_build.add_argument("--format", dest="format_id"); product_build.add_argument("--authority"); product_build.add_argument("--hash-algorithm", dest="hash_algorithm")
+    product_build = product_sub.add_parser("build"); product_build.add_argument("product", choices=["identity", "fixity", "authority-crosswalk", "containment", "physical-media", "capture-status", "set-completeness", "provenance-inventory", "preservation-run-report", "contained-manifest", "filesystem-manifest", "archive-manifest", "format-inventory", "analysis-coverage", "unsupported-formats", "duplicate-content", "source-provenance"]); product_build.add_argument("--platform"); product_build.add_argument("--format", dest="format_id"); product_build.add_argument("--authority"); product_build.add_argument("--hash-algorithm", dest="hash_algorithm")
     local = sub.add_parser("local-ingest", help="operate local import inbox and file ingest")
     local_sub = local.add_subparsers(dest="local_command", required=True)
     local_sub.add_parser("status"); local_sub.add_parser("jobs")
@@ -384,6 +395,33 @@ def run(args: argparse.Namespace) -> dict | list:
             if args.set_command == "list": return registry.sets()
             return registry.show_set(args.physical_set_id)
         return registry.captures(args.physical_medium_id)
+    if args.command == "preserve":
+        manager = PreservationWorkflow(archive)
+        if args.preserve_command == "devices": return manager.devices()
+        if args.preserve_command == "list": return [manager.public(x) for x in manager.list()]
+        if args.preserve_command in {"show", "status"}: return manager.public(manager.show(args.run_id))
+        if args.preserve_command == "resume": return manager.public(manager.resume(args.run_id))
+        if args.preserve_command == "cancel": return manager.public(manager.cancel(args.run_id))
+        if args.preserve_command == "report": return manager.public_report(manager.report(args.run_id))
+        if args.preserve_command == "review": return manager.review()
+        if args.preserve_command == "doctor": return manager.doctor()
+        if args.preserve_command == "progress": return manager.progress()
+        if args.preserve_command == "eject": return manager.eject(args.candidate_id)
+        if args.preserve_command == "intake":
+            physical_registry = PhysicalMediaRegistry(archive)
+            if args.preserve_intake_command == "begin": return physical_registry.intake_begin(provenance=args.provenance, rights=args.rights, platform=args.platform, vendor=args.vendor, operator=args.operator)
+            if args.preserve_intake_command == "status": return physical_registry.intake_status()
+            return physical_registry.intake_end()
+        if args.preserve_command in {"plan", "next"}:
+            run_value = manager.create(physical_medium_id=args.physical_medium, profile=args.profile)
+            run_value = manager.prepare(run_value["run_id"], candidate_id=args.candidate, physical_medium_id=args.physical_medium, title=args.title, platform=args.platform, provenance=args.provenance, rights=args.rights, media_class=args.media_class, drive=args.drive, floppy_profile=args.floppy_profile, tracks=args.tracks)
+            if args.preserve_command == "plan" or run_value["state"] != "READY_TO_CAPTURE": return manager.public(run_value)
+            if not args.yes:
+                if args.non_interactive: raise PolicyError("non-interactive preservation requires --yes after inspecting a plan")
+                answer = input(json.dumps(run_value["plan"], indent=2, sort_keys=True) + "\nProceed? [y/N] ")
+                if answer.strip().lower() not in {"y", "yes"}: return manager.public(manager.cancel(run_value["run_id"], reason="operator declined plan"))
+            return manager.public(manager.execute(run_value["run_id"]))
+        return manager.public(manager.execute(args.run_id))
     if args.command == "source":
         if args.source_command == "list":
             return [x.public() for x in registry.load().values()]
@@ -611,7 +649,9 @@ def main(argv: list[str] | None = None) -> int:
                 break
         result = run(parser().parse_args(values))
         print(json.dumps(result, indent=2, sort_keys=True))
-        return 0 if not isinstance(result, dict) or result.get("outcome") != "FAIL" else 1
+        if isinstance(result, dict) and result.get("state") == "NEEDS_OPERATOR": return 3
+        if isinstance(result, dict) and (result.get("outcome") == "FAIL" or result.get("state") in {"FAILED", "PARTIAL", "DEVICE_REMOVED"}): return 1
+        return 0
     except (RabError, OSError) as exc:
         print(f"rab: {exc}", file=sys.stderr)
         return 2
