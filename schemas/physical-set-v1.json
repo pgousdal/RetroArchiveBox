@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/physical-set-v1.json",
+  "title": "RAB Physical Media Set v1",
+  "type": "object",
+  "required": ["schema", "physical_set_id", "title", "created_at"],
+  "properties": {
+    "schema": {"const": "rab-physical-set-v1"},
+    "physical_set_id": {"pattern": "^rab-media-set-[0-9a-f]{32}$"},
+    "expected_count": {"type": ["integer", "null"], "minimum": 1}
+  },
+  "additionalProperties": true
+}

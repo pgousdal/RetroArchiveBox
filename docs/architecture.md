@@ -250,6 +250,50 @@ preserved image. Malware analysis therefore sees derived/captured copies, not
 the source device or preservation master. No hotplug daemon, automatic mount,
 repair, eject, or public capture endpoint is introduced.
 
+## Physical Media Intake and Evidence (M6.10)
+
+M6.10 registers an enduring physical object independently of any read of it.
+Its opaque `rab-media-<uuid>` identifier is random, never derived from a label,
+serial, filesystem, filename, or capture hash. Two copies stay distinct even
+when their bytes converge in the CAS. Registration remains optional for
+downloads and legacy captures.
+
+```text
+PHYSICAL OBJECT
+    |-- append-only observations and CAS-preserved evidence
+    `-- CAPTURE ATTEMPT
+            v
+       PRESERVED REPRESENTATION
+            v
+       LOGICAL / CONTAINED OBJECTS (M6.11)
+            v
+       RELEASE / WORK / PLATFORM IDENTITY
+```
+
+These identities must not be collapsed. A CD-ROM may have repeated ISO or
+BIN/CUE representations; a vendor USB stick may have a whole-device image that
+later yields partitions and files; an Amiga floppy may have an SCP flux master
+and later ADF/IPF representations. Capture jobs retain occurrences, tool
+evidence, outcomes and repeat comparisons. The universal graph records
+`CAPTURED_AS` and `EVIDENCE_FOR` relationships.
+
+Descriptive metadata is revisable, with immutable revision sidecars. Condition
+observations are append-only. Evidence enters normal CAS preservation rather
+than a database blob. Opaque set identities support editions, incomplete
+membership, unknown ordering, later additions and duplicate copies.
+
+Provenance is independent of `Rights`: original ownership never grants
+redistribution, and `pirate_copy` media is preserved rather than rejected.
+Public views omit operator notes, serials, barcodes, purchase/source details,
+observation notes, private evidence, device paths and tool commands. The local
+CLI covers records, sets, observations, evidence, capture history and batch
+intake defaults. Inventory, capture-status, set-completeness and provenance
+reports are deterministic metadata products, never masters.
+
+Registry operations do not touch source devices; existing capture safety gates
+remain authoritative. Partition/filesystem walking, ISO/ADF/D64 interpretation,
+recursive analysis and contained software identity remain M6.11 scope.
+
 ## Watched Inbox Production Service (M6.8)
 
 The watched service is a periodic, restart-safe reconciliation loop over

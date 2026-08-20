@@ -23,15 +23,28 @@ class ProductBuilder:
 
     def build(self, product: str, *, platform: str | None = None, format_id: str | None = None,
               authority: str | None = None, hash_algorithm: str | None = None) -> dict:
-        if product not in {"identity", "fixity", "authority-crosswalk", "containment"}:
+        if product not in {"identity", "fixity", "authority-crosswalk", "containment", "physical-media", "capture-status", "set-completeness", "provenance-inventory"}:
             raise RabError("unknown derived product")
-        rows = self.identity.search(platform=platform, format_id=format_id, authority=authority, hash_algorithm=hash_algorithm)
-        if product == "identity":
+        if product in {"physical-media", "capture-status", "set-completeness", "provenance-inventory"}:
+            from .physical_registry import PhysicalMediaRegistry
+            registry = PhysicalMediaRegistry(self.archive); physical = registry.list(); records = []
+            for item in physical:
+                captures = registry.captures(item["physical_medium_id"]); public = registry.public(item)
+                records.append({"physical_medium_id": item["physical_medium_id"], "media_class": item["media_class"], "provenance": item["provenance"], "rights": item["rights"], "metadata": public.get("metadata", {}), "set": item.get("set", {}), "capture_count": len(captures), "representation_ids": sorted({x["object_id"] for x in captures if x.get("object_id")}), "partial_capture_count": sum(x.get("state") in {"PARTIAL", "COMPLETED_WITH_WARNINGS", "COMPLETE_WITH_WARNINGS"} for x in captures), "disagreeing_capture_count": sum(bool(x.get("repeat_comparison", {}).get("differing_capture_preserved")) for x in captures), "observation_count": len(registry.observations(item["physical_medium_id"]))})
+            if product == "capture-status": records = [{key: value for key, value in x.items() if key not in {"metadata"}} for x in records]
+            elif product == "set-completeness": records = [{"physical_set_id": x["physical_set_id"], "title": x["title"], "edition": x.get("edition"), **x["completeness"]} for x in registry.sets()]
+            elif product == "provenance-inventory": records = [{"physical_medium_id": x["physical_medium_id"], "media_class": x["media_class"], "provenance": x["provenance"], "rights": x["rights"], "title": registry.public(next(y for y in physical if y["physical_medium_id"] == x["physical_medium_id"])).get("metadata", {}).get("title")} for x in records]
+            rows = []
+        else:
+            rows = self.identity.search(platform=platform, format_id=format_id, authority=authority, hash_algorithm=hash_algorithm)
+        if product in {"physical-media", "capture-status", "set-completeness", "provenance-inventory"}:
+            pass
+        elif product == "identity":
             records = [self._identity_row(x) | {"relationships": self.identity.relationships("sha256:" + x["sha256"])} for x in rows]
         elif product == "fixity": records = [{"object_id": "sha256:" + x["sha256"], "size": x["size"], "crc32": x["crc32"], "md5": x["md5"], "sha1": x["sha1"], "sha256": x["sha256"], "blake3": x["blake3"]} for x in rows]
         elif product == "containment": records = [{"object_id": "sha256:" + x["sha256"], "relationships": [r for r in self.identity.relationships("sha256:" + x["sha256"]) if r.get("relationship") == "CONTAINS" or r.get("object_id") == x["sha256"]]} for x in rows if any(r.get("relationship") == "CONTAINS" for r in self.identity.relationships("sha256:" + x["sha256"]))]
         else: records = [{"object_id": "sha256:" + x["sha256"], "authorities": json.loads(x["authorities"])} for x in rows if json.loads(x["authorities"])]
-        records = sorted(records, key=lambda x: x.get("object_id", ""))
+        records = sorted(records, key=lambda x: (x.get("object_id", ""), x.get("physical_medium_id", ""), x.get("physical_set_id", "")))
         filter_key = hashlib.sha256(json.dumps({"platform": platform, "format": format_id, "authority": authority, "hash": hash_algorithm}, sort_keys=True).encode()).hexdigest()[:12]
         directory = self.root / product; directory.mkdir(parents=True, exist_ok=True)
         output = directory / (filter_key + ".jsonl")

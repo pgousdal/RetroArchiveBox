@@ -7,6 +7,7 @@ from rab.catalogue import Catalogue
 from rab.errors import PolicyError, RabError
 from rab.flux import FluxDecoder, FluxManager, FloppyProfile, GreaseweazleAdapter
 from rab.store import Archive
+from rab.physical_registry import PhysicalMediaRegistry
 from rab.web import WebApplication
 
 
@@ -43,16 +44,17 @@ class Runner:
 def test_greaseweazle_read_only_capture_duplicate_and_surfaces(tmp_path):
     runner = Runner()
     adapter = GreaseweazleAdapter(runner=runner, which=lambda _: "/usr/bin/gw")
-    manager = FluxManager(Archive(tmp_path / "archive"), adapter=adapter)
-    first = manager.capture("/dev/serial/by-id/gw", profile=FloppyProfile.DD35.value, platform_hint="amiga", physical_medium_id="disk-1", verification="fast")
-    second = manager.capture("/dev/serial/by-id/gw", profile=FloppyProfile.DD35.value)
+    manager = FluxManager(Archive(tmp_path / "archive"), adapter=adapter); medium = PhysicalMediaRegistry(manager.archive).register("floppy_disk")
+    first = manager.capture("/dev/serial/by-id/gw", profile=FloppyProfile.DD35.value, platform_hint="amiga", physical_medium_id=medium["physical_medium_id"], verification="fast")
+    second = manager.capture("/dev/serial/by-id/gw", profile=FloppyProfile.DD35.value, physical_medium_id=medium["physical_medium_id"], repeat_of=first["job_id"])
     assert first["state"] == "COMPLETE"
     assert first["object_id"] == second["object_id"]
     assert first["capture"]["capture_mode_read_only"] is True
     assert first["capture"]["hardware_write_protection"] == "unknown"
-    assert first["platform_hint"] == "amiga" and first["physical_medium_id"] == "disk-1" and first["rights"] == "UNKNOWN"
+    assert first["platform_hint"] == "amiga" and first["physical_medium_id"] == medium["physical_medium_id"] and first["rights"] == "UNKNOWN"
     assert "write" not in " ".join(runner.commands[-1])
     assert len(manager.archive.show(first["object_id"])["occurrences"]) == 2
+    assert len(PhysicalMediaRegistry(manager.archive).captures(medium["physical_medium_id"])) == 2
     assert manager.jobs()[0]["capture"]["weak_track_observations"]
     api = CatalogueAPI(Catalogue(manager.archive))
     assert api.dispatch("GET", "/api/v1/media/flux/adapters")[0] == 200

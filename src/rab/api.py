@@ -26,6 +26,7 @@ from .physical import PhysicalMediaOrchestrator
 from .qualification import QualificationManager
 from .analysis import AnalysisManager
 from .removable import RemovableManager
+from .physical_registry import PhysicalMediaRegistry
 from .tree_ingest import TreeIngestManager
 
 
@@ -107,6 +108,15 @@ class CatalogueAPI:
         m = re.fullmatch(r"/api/v1/removable/jobs/([0-9a-f]+)/(inventory|analysis)", route)
         if m:
             return 200, removable.inventory(m.group(1)) if m.group(2) == "inventory" else {"capture_id": m.group(1), "analysis": "operator-local analysis; no remote execution"}
+        registry = PhysicalMediaRegistry(self.catalogue.archive)
+        if route == "/api/v1/physical": return 200, [registry.public(x) for x in registry.list()]
+        m = re.fullmatch(r"/api/v1/physical/(rab-media-[0-9a-f]{32})(/(captures|observations|evidence))?", route)
+        if m:
+            media_id = m.group(1); suffix = m.group(3)
+            if suffix == "captures": return 200, [registry.public_capture(x) for x in registry.captures(media_id)]
+            if suffix == "observations": return 200, [{key: item for key, item in x.items() if key not in {"observer", "note"}} for x in registry.observations(media_id)]
+            if suffix == "evidence": return 200, registry.public_evidence(media_id)
+            return 200, registry.public(registry.show(media_id))
         qualification = QualificationManager(self.catalogue.archive)
         if route == "/api/v1/qualification/status": return 200, qualification.public_status()
         if route == "/api/v1/qualification/runs": return 200, [{key: value for key, value in item.items() if key in {"qualification_id", "recorded_at", "profile", "readiness"}} for item in qualification.runs()]

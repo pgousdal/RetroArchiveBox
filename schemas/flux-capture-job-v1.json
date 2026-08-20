@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/flux-capture-job-v1.json",
+  "title": "RAB Flux Capture Job v1",
+  "type": "object",
+  "required": ["schema", "job_id", "state", "capture_format"],
+  "properties": {
+    "schema": {"const": "rab-flux-capture-job-v1"},
+    "job_id": {"type": "string"},
+    "state": {"type": "string"},
+    "capture_format": {"const": "scp"},
+    "physical_medium_id": {"type": ["string", "null"]},
+    "object_id": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}

@@ -219,6 +219,9 @@ class FluxManager:
                 tracks="c=0-79:h=0-1", sides="0,1", revolutions=3, rights=Rights.UNKNOWN,
                 provenance=ProvenanceClass.UNKNOWN, notes="", verification=VerificationPolicy.STANDARD):
         if profile not in FLOPPY_PROFILES: raise PolicyError("unknown floppy profile")
+        if physical_medium_id and physical_medium_id.startswith("rab-media-"):
+            from .physical_registry import PhysicalMediaRegistry
+            PhysicalMediaRegistry(self.archive).show(physical_medium_id)
         self.jobs_root.mkdir(parents=True, exist_ok=True); job_id = uuid.uuid4().hex
         stage = self.root / "staging" / job_id / "capture.scp"
         job = {"schema": "rab-flux-capture-job-v1", "job_id": job_id, "physical_medium_id": physical_medium_id or "physical-floppy:" + uuid.uuid4().hex, "capture_attempt": "REPEAT" if repeat_of else "FIRST", "repeat_of": repeat_of, "platform_hint": platform_hint,
@@ -247,6 +250,8 @@ class FluxManager:
         finally:
             if stage.is_file(): stage.unlink(missing_ok=True)
             job["updated_at"] = _now(); self.archive._atomic_json(self.jobs_root / (job_id + ".json"), job)
+        if physical_medium_id and physical_medium_id.startswith("rab-media-") and job.get("object_id"):
+            PhysicalMediaRegistry(self.archive).link_capture(physical_medium_id, job)
         return job
 
     @staticmethod

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/physical-medium-v1.json",
+  "title": "RAB Physical Medium v1",
+  "type": "object",
+  "required": ["schema", "physical_medium_id", "media_class", "provenance", "rights", "metadata", "set"],
+  "properties": {
+    "schema": {"const": "rab-physical-medium-v1"},
+    "physical_medium_id": {"pattern": "^rab-media-[0-9a-f]{32}$"},
+    "media_class": {"enum": ["optical_disc", "floppy_disk", "removable_flash", "hard_disk", "magnetic_tape", "cartridge", "memory_card", "other", "unknown"]},
+    "provenance": {"type": "string"},
+    "rights": {"enum": ["REDISTRIBUTABLE", "PRIVATE_LICENSED", "RESTRICTED", "UNKNOWN"]},
+    "metadata": {"type": "object"},
+    "set": {"type": "object"}
+  },
+  "additionalProperties": true
+}

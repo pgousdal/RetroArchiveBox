@@ -30,6 +30,7 @@ from .physical import PhysicalMediaOrchestrator
 from .qualification import QualificationManager, QualificationProfile, SeedPlanManager
 from .analysis import AnalysisLimits, AnalysisManager
 from .removable import RemovableManager
+from .physical_registry import ConditionType, PhysicalMediaClass, PhysicalMediaRegistry
 from .tree_ingest import TreeIngestManager
 
 
@@ -93,6 +94,17 @@ def parser() -> argparse.ArgumentParser:
     analyze_object = analyze_sub.add_parser("object"); analyze_object.add_argument("object_id"); analyze_object.add_argument("--policy", choices=["metadata-only", "identify", "preserve", "archival"], default="metadata-only"); analyze_object.add_argument("--max-depth", type=int, default=3); analyze_object.add_argument("--max-files", type=int, default=1000); analyze_object.add_argument("--max-bytes", type=int, default=256 * 1024 * 1024); analyze_object.add_argument("--max-single-bytes", type=int, default=64 * 1024 * 1024); analyze_object.add_argument("--max-members", type=int, default=10000); analyze_object.add_argument("--max-ratio", type=int, default=1000); analyze_object.add_argument("--max-seconds", type=float, default=30.0)
     analyze_show = analyze_sub.add_parser("show"); analyze_show.add_argument("job_id")
     analyze_relationships = analyze_sub.add_parser("relationships"); analyze_relationships.add_argument("object_id")
+    physical = sub.add_parser("physical", help="register and document physical media")
+    physical_sub = physical.add_subparsers(dest="physical_command", required=True)
+    physical_register = physical_sub.add_parser("register"); physical_register.add_argument("--class", dest="media_class", choices=[x.value for x in PhysicalMediaClass], default=PhysicalMediaClass.UNKNOWN.value); physical_register.add_argument("--title"); physical_register.add_argument("--platform"); physical_register.add_argument("--vendor"); physical_register.add_argument("--publisher"); physical_register.add_argument("--media-number"); physical_register.add_argument("--product-number"); physical_register.add_argument("--catalog-number"); physical_register.add_argument("--barcode"); physical_register.add_argument("--printed-serial-number"); physical_register.add_argument("--handwritten-label"); physical_register.add_argument("--volume-label"); physical_register.add_argument("--medium-subtype"); physical_register.add_argument("--nominal-capacity"); physical_register.add_argument("--physical-format"); physical_register.add_argument("--write-protect-state"); physical_register.add_argument("--acquisition-source-description"); physical_register.add_argument("--approximate-acquisition-date"); physical_register.add_argument("--set-id"); physical_register.add_argument("--set-position"); physical_register.add_argument("--total-media-count", type=int); physical_register.add_argument("--provenance", choices=[x.value for x in ProvenanceClass]); physical_register.add_argument("--rights", choices=[x.value for x in Rights]); physical_register.add_argument("--notes", default="")
+    physical_sub.add_parser("list")
+    physical_show = physical_sub.add_parser("show"); physical_show.add_argument("physical_medium_id")
+    physical_update = physical_sub.add_parser("update"); physical_update.add_argument("physical_medium_id"); physical_update.add_argument("--title"); physical_update.add_argument("--platform"); physical_update.add_argument("--vendor"); physical_update.add_argument("--provenance", choices=[x.value for x in ProvenanceClass]); physical_update.add_argument("--rights", choices=[x.value for x in Rights]); physical_update.add_argument("--notes")
+    physical_observe = physical_sub.add_parser("observe"); physical_observe.add_argument("physical_medium_id"); physical_observe.add_argument("observation_type", choices=[x.value for x in ConditionType]); physical_observe.add_argument("--note", default=""); physical_observe.add_argument("--observer")
+    physical_evidence = physical_sub.add_parser("evidence"); physical_evidence.add_argument("physical_medium_id"); physical_evidence.add_argument("path", type=Path); physical_evidence.add_argument("--type", dest="evidence_type", default="other"); physical_evidence.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); physical_evidence.add_argument("--note", default=""); physical_evidence.add_argument("--public", action="store_true")
+    physical_captures = physical_sub.add_parser("captures"); physical_captures.add_argument("physical_medium_id")
+    physical_intake = physical_sub.add_parser("intake"); physical_intake_sub = physical_intake.add_subparsers(dest="intake_command", required=True); physical_intake_begin = physical_intake_sub.add_parser("begin"); physical_intake_begin.add_argument("--provenance", choices=[x.value for x in ProvenanceClass], default=ProvenanceClass.UNKNOWN.value); physical_intake_begin.add_argument("--rights", choices=[x.value for x in Rights], default=Rights.UNKNOWN.value); physical_intake_begin.add_argument("--platform"); physical_intake_begin.add_argument("--vendor"); physical_intake_begin.add_argument("--operator"); physical_intake_sub.add_parser("status"); physical_intake_sub.add_parser("end")
+    physical_set = physical_sub.add_parser("set"); physical_set_sub = physical_set.add_subparsers(dest="set_command", required=True); physical_set_register = physical_set_sub.add_parser("register"); physical_set_register.add_argument("--title", required=True); physical_set_register.add_argument("--edition"); physical_set_register.add_argument("--expected-count", type=int); physical_set_register.add_argument("--notes", default=""); physical_set_sub.add_parser("list"); physical_set_show = physical_set_sub.add_parser("show"); physical_set_show.add_argument("physical_set_id")
     source = sub.add_parser("source", help="inspect and operate configured sources")
     source_sub = source.add_subparsers(dest="source_command", required=True)
     source_sub.add_parser("list")
@@ -215,7 +227,7 @@ def parser() -> argparse.ArgumentParser:
     product = sub.add_parser("product", help="build deterministic derived metadata products")
     product_sub = product.add_subparsers(dest="product_command", required=True)
     product_sub.add_parser("list")
-    product_build = product_sub.add_parser("build"); product_build.add_argument("product", choices=["identity", "fixity", "authority-crosswalk", "containment"]); product_build.add_argument("--platform"); product_build.add_argument("--format", dest="format_id"); product_build.add_argument("--authority"); product_build.add_argument("--hash-algorithm", dest="hash_algorithm")
+    product_build = product_sub.add_parser("build"); product_build.add_argument("product", choices=["identity", "fixity", "authority-crosswalk", "containment", "physical-media", "capture-status", "set-completeness", "provenance-inventory"]); product_build.add_argument("--platform"); product_build.add_argument("--format", dest="format_id"); product_build.add_argument("--authority"); product_build.add_argument("--hash-algorithm", dest="hash_algorithm")
     local = sub.add_parser("local-ingest", help="operate local import inbox and file ingest")
     local_sub = local.add_subparsers(dest="local_command", required=True)
     local_sub.add_parser("status"); local_sub.add_parser("jobs")
@@ -337,6 +349,27 @@ def run(args: argparse.Namespace) -> dict | list:
         if args.analyze_command == "relationships": return manager.relationships(args.object_id)
         limits = AnalysisLimits(max_depth=args.max_depth, max_files=args.max_files, max_bytes=args.max_bytes, max_single_bytes=args.max_single_bytes, max_members=args.max_members, max_ratio=args.max_ratio, max_seconds=args.max_seconds)
         return manager.analyze(args.object_id, policy=args.policy, limits=limits)
+    if args.command == "physical":
+        registry = PhysicalMediaRegistry(archive)
+        if args.physical_command == "register":
+            metadata = {key: value for key, value in {"title": args.title, "platform": args.platform, "vendor": args.vendor, "publisher": args.publisher, "media_number": args.media_number, "product_number": args.product_number, "catalog_number": args.catalog_number, "barcode": args.barcode, "printed_serial_number": args.printed_serial_number, "handwritten_label": args.handwritten_label, "volume_label": args.volume_label, "medium_subtype": args.medium_subtype, "nominal_capacity": args.nominal_capacity, "physical_format": args.physical_format, "write_protect_state": args.write_protect_state, "acquisition_source_description": args.acquisition_source_description, "approximate_acquisition_date": args.approximate_acquisition_date, "operator_notes": args.notes}.items() if value not in (None, "")}
+            return registry.register(args.media_class, provenance=args.provenance, rights=args.rights, metadata=metadata, set_id=args.set_id, set_position=args.set_position, total_media_count=args.total_media_count)
+        if args.physical_command == "list": return registry.list()
+        if args.physical_command == "show": return registry.show(args.physical_medium_id)
+        if args.physical_command == "update":
+            metadata = {key: value for key, value in {"title": args.title, "platform": args.platform, "vendor": args.vendor, "operator_notes": args.notes}.items() if value is not None}
+            return registry.update(args.physical_medium_id, metadata=metadata or None, provenance=args.provenance, rights=args.rights)
+        if args.physical_command == "observe": return registry.observe(args.physical_medium_id, args.observation_type, note=args.note, observer=args.observer)
+        if args.physical_command == "evidence": return registry.add_evidence(args.physical_medium_id, args.path, rights=args.rights, note=args.note, evidence_type=args.evidence_type, public=args.public)
+        if args.physical_command == "intake":
+            if args.intake_command == "begin": return registry.intake_begin(provenance=args.provenance, rights=args.rights, platform=args.platform, vendor=args.vendor, operator=args.operator)
+            if args.intake_command == "status": return registry.intake_status()
+            return registry.intake_end()
+        if args.physical_command == "set":
+            if args.set_command == "register": return registry.register_set(args.title, edition=args.edition, expected_count=args.expected_count, notes=args.notes)
+            if args.set_command == "list": return registry.sets()
+            return registry.show_set(args.physical_set_id)
+        return registry.captures(args.physical_medium_id)
     if args.command == "source":
         if args.source_command == "list":
             return [x.public() for x in registry.load().values()]

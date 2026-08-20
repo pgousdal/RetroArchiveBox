@@ -11,6 +11,7 @@
     "device": {"type": "string"},
     "adapter": {"type": "object"},
     "object_id": {"type": ["string", "null"]}
+    ,"physical_medium_id": {"type": ["string", "null"]}
   },
   "additionalProperties": true
 }

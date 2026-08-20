@@ -7,6 +7,7 @@ from rab.catalogue import Catalogue
 from rab.errors import PolicyError, RabError
 from rab.media import OpticalAdapter, OpticalManager, OpticalOutcome
 from rab.model import Rights
+from rab.physical_registry import PhysicalMediaRegistry
 from rab.store import Archive
 from rab.web import WebApplication
 
@@ -29,13 +30,15 @@ class _OpticalRunner:
 
 def test_optical_inspection_planning_capture_duplicate_and_api(tmp_path):
     archive = Archive(tmp_path / "archive"); adapter = OpticalAdapter(runner=_OpticalRunner(), which=lambda _: None); manager = OpticalManager(archive, adapter=adapter)
+    medium = PhysicalMediaRegistry(archive).register("optical_disc")
     inspection = manager.inspect("/dev/sr0")
     assert inspection["medium_type"] == "data-cd" and inspection["filesystem"] == "iso9660"
-    first = manager.capture("/dev/sr0", rights=Rights.UNKNOWN)
-    second = manager.capture("/dev/sr0", rights=Rights.RESTRICTED)
+    first = manager.capture("/dev/sr0", physical_medium_id=medium["physical_medium_id"], rights=Rights.UNKNOWN)
+    second = manager.capture("/dev/sr0", physical_medium_id=medium["physical_medium_id"], repeat_of=first["job_id"], rights=Rights.RESTRICTED)
     assert first["state"] == OpticalOutcome.COMPLETE.value and second["object_id"] == first["object_id"]
     assert len(list(archive.objects.rglob("master"))) == 1
     assert len(archive.show(first["object_id"])["occurrences"]) == 2
+    assert len(PhysicalMediaRegistry(archive).captures(medium["physical_medium_id"])) == 2
     api = CatalogueAPI(Catalogue(archive))
     assert api.dispatch("GET", "/api/v1/media/optical/jobs")[0] == 200
     web = WebApplication(archive)

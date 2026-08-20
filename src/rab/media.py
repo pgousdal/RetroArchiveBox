@@ -210,6 +210,9 @@ class MediaManager:
         return json.loads(path.read_text(encoding="utf-8"))
 
     def capture(self, device: str, *, physical_medium_id=None, repeat_of=None, platform_hint=None, vendor=None, title=None, collection=None, media_number=None, rights: Rights = Rights.UNKNOWN, provenance: ProvenanceClass | str = ProvenanceClass.ORIGINAL_PHYSICAL_OWNED, notes: str = "", verification: str = "standard"):
+        if physical_medium_id and physical_medium_id.startswith("rab-media-"):
+            from .physical_registry import PhysicalMediaRegistry
+            PhysicalMediaRegistry(self.archive).show(physical_medium_id)
         self.jobs_root.mkdir(parents=True, exist_ok=True); job_id = uuid.uuid4().hex; staging = self.root / "staging" / job_id / "device.img"
         job = {"schema": "rab-media-capture-job-v1", "job_id": job_id, "state": IngestJobState.CAPTURING.value, "created_at": _now(), "device": device, "physical_medium_id": physical_medium_id or "physical-removable:" + uuid.uuid4().hex, "capture_attempt": "REPEAT" if repeat_of else "FIRST", "repeat_of": repeat_of, "platform_hint": platform_hint, "vendor": vendor, "title": title, "collection": collection, "media_number": media_number, "provenance_classification": ProvenanceClass(provenance).value, "rights": Rights(rights).value, "operator_notes": notes, "representation_kind": RepresentationKind.WHOLE_DEVICE_IMAGE.value, "adapter": self.adapter.capabilities(), "verification_policy": verification, "verification": {"policy": verification, "status": "NOT_PERFORMED", "methods": []}, "warnings": [], "errors": [], "object_id": None}
         self.archive._atomic_json(self.jobs_root / (job_id + ".json"), job)
@@ -235,6 +238,8 @@ class MediaManager:
             try: staging.parent.rmdir()
             except OSError: pass
             job["updated_at"] = _now(); self.archive._atomic_json(self.jobs_root / (job_id + ".json"), job)
+        if physical_medium_id and physical_medium_id.startswith("rab-media-") and job.get("object_id"):
+            PhysicalMediaRegistry(self.archive).link_capture(physical_medium_id, job)
         return job
 
 
@@ -330,6 +335,9 @@ class OpticalManager:
         return json.loads(path.read_text(encoding="utf-8"))
 
     def capture(self, device: str, *, physical_medium_id=None, repeat_of=None, platform_hint=None, title=None, media_number=None, rights: Rights = Rights.UNKNOWN, provenance: ProvenanceClass | str = ProvenanceClass.ORIGINAL_PHYSICAL_OWNED, notes: str = "", verification: str = "standard"):
+        if physical_medium_id and physical_medium_id.startswith("rab-media-"):
+            from .physical_registry import PhysicalMediaRegistry
+            PhysicalMediaRegistry(self.archive).show(physical_medium_id)
         self.jobs_root.mkdir(parents=True, exist_ok=True); job_id = uuid.uuid4().hex; stage = self.root / "staging" / job_id / "disc.iso"
         job = {"schema": "rab-optical-capture-job-v1", "job_id": job_id, "state": "INSPECTING", "device": device, "physical_medium_id": physical_medium_id or "physical-optical:" + uuid.uuid4().hex, "capture_attempt": "REPEAT" if repeat_of else "FIRST", "repeat_of": repeat_of, "platform_hint": platform_hint, "title": title, "media_number": media_number, "provenance_classification": ProvenanceClass(provenance).value, "rights": Rights(rights).value, "operator_notes": notes, "representation_kind": RepresentationKind.SECTOR_IMAGE.value, "created_at": _now(), "verification_policy": verification, "verification": {"policy": verification, "status": "NOT_PERFORMED"}, "warnings": [], "errors": [], "representations": []}
         self.archive._atomic_json(self.jobs_root / (job_id + ".json"), job)
@@ -352,4 +360,6 @@ class OpticalManager:
             try: stage.parent.rmdir()
             except OSError: pass
             job["updated_at"] = _now(); self.archive._atomic_json(self.jobs_root / (job_id + ".json"), job)
+        if physical_medium_id and physical_medium_id.startswith("rab-media-") and job.get("object_id"):
+            PhysicalMediaRegistry(self.archive).link_capture(physical_medium_id, job)
         return job

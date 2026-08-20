@@ -496,6 +496,15 @@ hardening, and production torrent-client integration. Those areas are covered
 by M2.3 below; the broad M2 acceptance scope is now complete, while FTP remains
 an explicitly deferred non-blocking backend.
 
+## M6.10 physical media intake and evidence
+
+Implemented for deterministic fixture qualification: opaque physical-medium
+and set identities, audited revisions, append-only conditions, CAS-backed
+evidence, intake defaults, optical/removable/flux linkage, read-only API and
+RetroWeb, redaction, and rebuildable reports. No real optical drive, block
+device, or Greaseweazle hardware was exercised. Deep image analysis remains
+M6.11. Museum-grade status remains **NO**.
+
 ## M2.3 qualification update (2026-08-18)
 
 A bounded live qualification completed against the official Aminet mirror

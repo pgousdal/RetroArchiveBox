@@ -20,6 +20,7 @@ from .qualification import QualificationManager
 from .analysis import AnalysisManager
 from .malware import MalwareStore
 from .removable import RemovableManager
+from .physical_registry import PhysicalMediaRegistry
 from .tree_ingest import TreeIngestManager
 
 
@@ -91,6 +92,8 @@ class WebApplication:
             if route == "/analysis": return self.analysis(retro)
             if route == "/malware": return self.malware(retro)
             if route == "/removable": return self.removable(retro)
+            if route == "/physical": return self.physical(retro)
+            if route.startswith("/physical/"): return self.physical_detail(unquote(route.removeprefix("/physical/")), retro)
             if route == "/optical": return self.optical_jobs(retro)
             if route == "/flux": return self.flux_jobs(retro)
             if route.startswith("/source/"): return self.source(unquote(route.removeprefix("/source/")), retro)
@@ -233,6 +236,19 @@ class WebApplication:
         content += ''.join('<tr><td>' + _e(x.get("transport")) + '</td><td>' + _e(x.get("model")) + '</td><td>' + _e(x.get("size")) + '</td><td>' + _e(x.get("removable")) + '</td><td>' + _e(x.get("safety")) + '</td><td>' + _e(x.get("mounted_children")) + '</td></tr>' for x in devices) + '</table><h3>Capture jobs</h3><ul>'
         content += ''.join('<li>' + _e(x.get("job_id")) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("object_id")) + ' / ' + _e(x.get("provenance_classification")) + '</li>' for x in jobs) or '<li>No removable capture jobs recorded.</li>'
         return 200, "text/html; charset=utf-8", self.page("Removable Media", content + '</ul>', retro), None
+
+    def physical(self, retro):
+        records = PhysicalMediaRegistry(self.catalogue.archive).list(); prefix = "/retro" if retro else "/web"; content = '<p>Read-only physical-medium registry. A physical object is not its capture hash.</p><table><tr><th>Physical ID</th><th>Class</th><th>Title</th><th>Provenance</th><th>Rights</th><th>Captures</th><th>Observations</th></tr>'
+        registry = PhysicalMediaRegistry(self.catalogue.archive)
+        content += ''.join('<tr><td><a href="' + prefix + '/physical/' + _e(x.get("physical_medium_id")) + '"><code>' + _e(x.get("physical_medium_id")) + '</code></a></td><td>' + _e(x.get("media_class")) + '</td><td>' + _e(x.get("metadata", {}).get("title")) + '</td><td>' + _e(x.get("provenance")) + '</td><td>' + _e(x.get("rights")) + '</td><td>' + _e(len(registry.captures(x["physical_medium_id"]))) + '</td><td>' + _e(len(registry.observations(x["physical_medium_id"]))) + '</td></tr>' for x in records) + '</table>'
+        return 200, "text/html; charset=utf-8", self.page("Physical Media Registry", content, retro), None
+
+    def physical_detail(self, media_id, retro):
+        registry = PhysicalMediaRegistry(self.catalogue.archive); record = registry.public(registry.show(media_id)); captures = [registry.public_capture(x) for x in registry.captures(media_id)]; observations = registry.observations(media_id); evidence = registry.public_evidence(media_id)
+        metadata = record.get("metadata", {}); membership = record.get("set", {}); content = '<p><code>' + _e(media_id) + '</code></p><h3>Description</h3><dl><dt>Class</dt><dd>' + _e(record.get("media_class")) + '</dd><dt>Title</dt><dd>' + _e(metadata.get("title")) + '</dd><dt>Platform</dt><dd>' + _e(metadata.get("platform")) + '</dd><dt>Provenance</dt><dd>' + _e(record.get("provenance")) + '</dd><dt>Rights</dt><dd>' + _e(record.get("rights")) + '</dd><dt>Set</dt><dd>' + _e(membership.get("set_id")) + ' / ' + _e(membership.get("position")) + '</dd></dl><h3>Capture history</h3><ul>'
+        content += ''.join('<li>' + _e(x.get("created_at")) + ': ' + _e(x.get("state")) + ' — <code>' + _e(x.get("object_id")) + '</code> (' + _e(x.get("representation_kind")) + ')</li>' for x in captures) or '<li>Never captured.</li>'
+        content += '</ul><h3>Condition observations</h3><ul>' + (''.join('<li>' + _e(x.get("recorded_at")) + ': ' + _e(x.get("observation_type")) + '</li>' for x in observations) or '<li>No observations.</li>') + '</ul><h3>Public evidence</h3><ul>' + (''.join('<li>' + _e(x.get("evidence_type")) + ': <code>' + _e(x.get("object_id")) + '</code></li>' for x in evidence) or '<li>No public evidence.</li>') + '</ul>'
+        return 200, "text/html; charset=utf-8", self.page(metadata.get("title") or media_id, content, retro), None
 
     def optical_jobs(self, retro):
         jobs = OpticalManager(self.catalogue.archive).jobs(); content = '<p>Read-only optical capture status.</p><ul>' + ''.join('<li>' + _e(x["job_id"]) + ': ' + _e(x.get("state")) + ' / ' + _e(x.get("object_id")) + '</li>' for x in jobs) + '</ul>' if jobs else '<p>No optical capture jobs recorded.</p>'

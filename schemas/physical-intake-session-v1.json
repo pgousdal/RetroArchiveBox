@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/physical-intake-session-v1.json",
+  "title": "RAB Physical Intake Session v1",
+  "type": "object",
+  "required": ["schema", "session_id", "state", "started_at", "defaults"],
+  "properties": {
+    "schema": {"const": "rab-physical-intake-session-v1"},
+    "session_id": {"pattern": "^rab-intake-[0-9a-f]{32}$"},
+    "state": {"enum": ["ACTIVE", "COMPLETED"]},
+    "defaults": {"type": "object"}
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retroarchivebox.invalid/schemas/physical-observation-v1.json",
+  "title": "RAB Physical Condition Observation v1",
+  "type": "object",
+  "required": ["schema", "observation_id", "physical_medium_id", "recorded_at", "observation_type"],
+  "properties": {
+    "schema": {"const": "rab-physical-observation-v1"},
+    "physical_medium_id": {"pattern": "^rab-media-[0-9a-f]{32}$"},
+    "observation_type": {"enum": ["sealed", "clean", "scratched", "dirty", "label_damage", "cracked", "warped", "mould", "oxidation", "write_protected", "write_protect_unknown", "read_error_observed", "visually_modified", "handwritten", "other"]}
+  },
+  "additionalProperties": true
+}

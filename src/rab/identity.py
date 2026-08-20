@@ -35,6 +35,8 @@ class RelationshipType(StrEnum):
     MEMBER_OF_RELEASE = "MEMBER_OF_RELEASE"
     RELEASE_OF_WORK = "RELEASE_OF_WORK"
     AUTHORITY_MATCH = "AUTHORITY_MATCH"
+    CAPTURED_AS = "CAPTURED_AS"
+    EVIDENCE_FOR = "EVIDENCE_FOR"
 
 
 # Profiles are data, not platform-specific control flow. Unknown formats remain
